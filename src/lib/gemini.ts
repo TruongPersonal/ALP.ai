@@ -31,6 +31,7 @@ async function callBeeknoeeChat(
       { role: 'system', content: systemInstruction },
       { role: 'user', content: userPrompt }
     ],
+    max_tokens: 8192,
   };
 
   if (responseFormatJson) {
@@ -83,9 +84,9 @@ Nhiệm vụ của bạn là dựa trên tài liệu được cung cấp, thực
 1. Thiết kế phần tóm tắt môn học (summary_markdown) theo tiêu chuẩn tiếp cận số (WCAG 2.2):
 - Hãy tạo ra một bản tóm tắt môn học cô đọng nhưng đầy đủ kiến thức cốt lõi, định nghĩa và công thức.
 - Tuyệt đối KHÔNG viết các câu mở đầu mang tính giới thiệu xã giao hay dẫn nhập dài dòng (như "Tóm tắt cốt lõi...", "Tài liệu này tóm tắt...").
-- Tuyệt đối KHÔNG viết tiêu đề chính của môn học/giáo trình vì giao diện đã có sẵn. Hãy bắt đầu ngay từ tiêu đề chương đầu tiên luôn (ví dụ: "### Chương 1: ...").
+- Tuyệt đối KHÔNG viết tiêu đề chính của môn học/giáo trình vì giao diện đã có sẵn. Hãy bắt đầu ngay từ tiêu đề chương đầu tiên luôn (ví dụ: "# Chương 1: ...").
 - Tuyệt đối KHÔNG dùng ký hiệu LaTeX/KaTeX hoặc ký hiệu đô-la ($...) vì Screen Reader không đọc được. Hãy viết công thức bằng chữ tiếng Việt hoặc ký tự Unicode cơ bản (ví dụ: "bình phương của x", "x^2", "a chia cho b", "a / b").
-- Sử dụng chính xác cấu trúc thẻ tiêu đề Markdown logic (### Tiêu đề mục lớn, #### Tiêu đề mục nhỏ) để người dùng dễ duyệt nhanh.
+- Sử dụng chính xác cấu trúc thẻ tiêu đề Markdown logic (# Tiêu đề mục lớn, ## Tiêu đề mục nhỏ) để người dùng dễ duyệt nhanh.
 - Dùng danh sách bullet point (-) ngắn gọn, súc tích. Bảng biểu (nếu có) phải rõ ràng cột/dòng. Tránh các khối văn bản quá dài và biểu tượng đặc biệt gây bối rối cho Screen Reader.
 
 2. Thiết kế ngân hàng câu hỏi (questions) gồm đúng 40 câu hỏi chất lượng cao bám sát nội dung tài liệu, bao gồm:

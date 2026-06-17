@@ -46,9 +46,9 @@ export async function POST(request: Request) {
 
     const questionBank = material.questions;
 
-    if (!Array.isArray(questionBank) || questionBank.length < 40) {
+    if (!Array.isArray(questionBank)) {
       return NextResponse.json(
-        { error: 'Ngân hàng câu hỏi chưa được khởi tạo đầy đủ.' },
+        { error: 'Ngân hàng câu hỏi không hợp lệ.' },
         { status: 422 }
       );
     }
@@ -56,9 +56,9 @@ export async function POST(request: Request) {
     const mcQuestions = questionBank.filter(q => q.type === 'multiple_choice');
     const essayQuestions = questionBank.filter(q => q.type === 'essay');
 
-    if (mcQuestions.length < 7 || essayQuestions.length < 3) {
+    if (mcQuestions.length < 30 || essayQuestions.length < 10) {
       return NextResponse.json(
-        { error: 'Ngân hàng câu hỏi bị lỗi định dạng.' },
+        { error: `Ngân hàng câu hỏi chưa được khởi tạo đầy đủ.` },
         { status: 422 }
       );
     }

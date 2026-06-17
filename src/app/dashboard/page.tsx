@@ -51,6 +51,8 @@ export default function DashboardPage() {
   const [isEditSubjectOpen, setIsEditSubjectOpen] = useState(false);
   const [subjectName, setSubjectName] = useState('');
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
+  const [isCreatingSubject, setIsCreatingSubject] = useState(false);
+  const [isEditingSubject, setIsEditingSubject] = useState(false);
 
   // Trạng thái Modal upload học liệu
   const [isUploadOpen, setIsUploadOpen] = useState(false);
@@ -137,8 +139,9 @@ export default function DashboardPage() {
   // -------------------------------------------------------------
   const handleAddSubject = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!subjectName.trim() || !user) return;
+    if (!subjectName.trim() || !user || isCreatingSubject) return;
 
+    setIsCreatingSubject(true);
     try {
       const response = await fetch('/api/subjects', {
         method: 'POST',
@@ -154,13 +157,16 @@ export default function DashboardPage() {
       }
     } catch (err) {
       console.error(err);
+    } finally {
+      setIsCreatingSubject(false);
     }
   };
 
   const handleEditSubject = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!subjectName.trim() || !selectedSubjectId || !user) return;
+    if (!subjectName.trim() || !selectedSubjectId || !user || isEditingSubject) return;
 
+    setIsEditingSubject(true);
     try {
       const response = await fetch('/api/subjects', {
         method: 'PATCH',
@@ -177,6 +183,8 @@ export default function DashboardPage() {
       }
     } catch (err) {
       console.error(err);
+    } finally {
+      setIsEditingSubject(false);
     }
   };
 
@@ -226,15 +234,8 @@ export default function DashboardPage() {
         body: formData,
       });
 
-      const cloneResponse = response.clone();
-      let data;
-      try {
-        data = await response.json();
-      } catch (jsonErr) {
-        const text = await cloneResponse.text();
-        console.error('Phản hồi lỗi từ server:', text);
-        throw new Error(`Lỗi định dạng phản hồi (Mã: ${response.status}). Chi tiết: ${text.slice(0, 150)}`);
-      }
+      const data = await response.json();
+
 
       if (!response.ok) {
         throw new Error(data.error || 'Tải học liệu thất bại.');
@@ -486,17 +487,22 @@ export default function DashboardPage() {
               type="text"
               required
               autoFocus
+              disabled={isCreatingSubject}
               value={subjectName}
               onChange={(e) => setSubjectName(e.target.value)}
               placeholder="Ví dụ: Lịch sử Đảng Cộng Sản Việt Nam"
-              className="w-full text-lg px-4 py-3 rounded-lg border-2 border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-blue-600 dark:focus:border-blue-500 transition-colors"
+              className="w-full text-lg px-4 py-3 rounded-lg border-2 border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-blue-600 dark:focus:border-blue-500 transition-colors disabled:opacity-50"
             />
           </div>
           <button
             type="submit"
-            className="w-full text-lg font-bold py-3 px-6 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors focus:ring-blue-500"
+            disabled={isCreatingSubject}
+            className="w-full text-lg font-bold py-3 px-6 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors focus:ring-blue-500 disabled:opacity-50 flex items-center justify-center space-x-2"
           >
-            Tạo mới
+            {isCreatingSubject && (
+              <span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" aria-hidden="true"></span>
+            )}
+            <span>{isCreatingSubject ? 'Đang tạo...' : 'Tạo mới'}</span>
           </button>
         </form>
       </Modal>
@@ -518,16 +524,21 @@ export default function DashboardPage() {
               type="text"
               required
               autoFocus
+              disabled={isEditingSubject}
               value={subjectName}
               onChange={(e) => setSubjectName(e.target.value)}
-              className="w-full text-lg px-4 py-3 rounded-lg border-2 border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 text-gray-900 dark:text-white focus:outline-none focus:border-blue-600 dark:focus:border-blue-500 transition-colors"
+              className="w-full text-lg px-4 py-3 rounded-lg border-2 border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 text-gray-900 dark:text-white focus:outline-none focus:border-blue-600 dark:focus:border-blue-500 transition-colors disabled:opacity-50"
             />
           </div>
           <button
             type="submit"
-            className="w-full text-lg font-bold py-3 px-6 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors focus:ring-blue-500"
+            disabled={isEditingSubject}
+            className="w-full text-lg font-bold py-3 px-6 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors focus:ring-blue-500 disabled:opacity-50 flex items-center justify-center space-x-2"
           >
-            Cập nhật
+            {isEditingSubject && (
+              <span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" aria-hidden="true"></span>
+            )}
+            <span>{isEditingSubject ? 'Đang cập nhật...' : 'Cập nhật'}</span>
           </button>
         </form>
       </Modal>
