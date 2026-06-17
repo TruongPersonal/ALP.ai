@@ -19,6 +19,7 @@ interface Subject {
   materials: {
     id: string;
     summary_markdown: string;
+    status: string;
   } | null;
 }
 
@@ -212,7 +213,15 @@ export default function DashboardPage() {
   // -------------------------------------------------------------
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      setSelectedFile(e.target.files[0]);
+      const file = e.target.files[0];
+      const maxLimit = 20 * 1024 * 1024; // 20MB
+      if (file.size > maxLimit) {
+        alert('Kích thước tệp tin vượt quá giới hạn cho phép (Tối đa 20MB).');
+        e.target.value = '';
+        setSelectedFile(null);
+        return;
+      }
+      setSelectedFile(file);
     }
   };
 
@@ -220,29 +229,62 @@ export default function DashboardPage() {
     e.preventDefault();
     if (!selectedFile || !selectedSubjectId || !user) return;
 
+    const maxLimit = 20 * 1024 * 1024; // 20MB
+    if (selectedFile.size > maxLimit) {
+      setUploadStatus('Thất bại: Kích thước tệp tin tối đa là 20MB.');
+      setLiveAnnouncement('Kích thước tệp tin vượt quá giới hạn cho phép (Tối đa 20MB).');
+      return;
+    }
+
     setUploading(true);
-    setUploadStatus('Trợ lý đang xử lý...');
-    setLiveAnnouncement('Trợ lý đang xử lý. Vui lòng đợi...');
+    setUploadStatus('Đang tải tệp lên...');
+    setLiveAnnouncement('Đang tải tệp lên hệ thống lưu trữ. Vui lòng đợi...');
 
     try {
-      const formData = new FormData();
-      formData.append('file', selectedFile);
-      formData.append('subjectId', selectedSubjectId);
+      // 1. Tải tệp lên Supabase Storage bucket 'alp_ai' dưới folder 'materials/'
+      const fileExt = selectedFile.name.split('.').pop();
+      const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
+      const filePath = `materials/${fileName}`;
 
+      const { data: uploadData, error: uploadErr } = await supabase.storage
+        .from('alp_ai')
+        .upload(filePath, selectedFile, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (uploadErr) {
+        throw new Error(`Lỗi: ${uploadErr.message}`);
+      }
+
+      // 2. Lấy URL công khai của tệp vừa tải lên
+      const { data: { publicUrl } } = supabase.storage
+        .from('alp_ai')
+        .getPublicUrl(filePath);
+
+      setUploadStatus('Đang kích hoạt trợ lý AI...');
+      setLiveAnnouncement('Đã tải tệp thành công, đang khởi tạo trợ lý học tập...');
+
+      // 3. Gửi thông tin fileUrl và subjectId lên API để lưu trữ & chạy ngầm AI Pipeline
       const response = await fetch('/api/materials', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileUrl: publicUrl,
+          fileName: selectedFile.name,
+          fileMime: selectedFile.type,
+          subjectId: selectedSubjectId
+        }),
       });
 
       const data = await response.json();
-
 
       if (!response.ok) {
         throw new Error(data.error || 'Tải học liệu thất bại.');
       }
 
-      setUploadStatus('Hoàn thành! Đã xử lý tài liệu.');
-      setLiveAnnouncement('Đã tải tài liệu và xử lý thành công!');
+      setUploadStatus('Tải lên thành công! Trợ lý đang xử lý...');
+      setLiveAnnouncement('Tải lên thành công! Trợ lý AI đang phân tích tài liệu trong nền, bạn có thể đóng hộp thoại.');
 
       setSelectedFile(null);
       setSelectedSubjectId(null);
@@ -314,7 +356,11 @@ export default function DashboardPage() {
             className="grid grid-cols-1 md:grid-cols-2 gap-6"
           >
             {subjects.map((sub) => {
-              const hasMaterial = !!sub.materials;
+              const material = sub.materials;
+              const isProcessing = !!material && material.status === 'processing';
+              const isFailed = !!material && material.status === 'failed';
+              const hasMaterial = !!material && material.status === 'success';
+
               return (
                 <li
                   key={sub.id}
@@ -355,27 +401,18 @@ export default function DashboardPage() {
 
                   {/* Cụm nút hành động chính bên dưới thẻ card */}
                   <div className="mt-6 grid grid-cols-1 gap-3">
-                    {hasMaterial ? (
-                      <>
-                        <div className="grid grid-cols-2 gap-3">
-                          <button
-                            type="button"
-                            onClick={() => router.push(`/subjects/${sub.id}`)}
-                            className="text-base font-bold bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg flex items-center justify-center space-x-2 focus:ring-blue-500"
-                            aria-label={`Đọc tài liệu môn ${sub.name}`}
-                          >
-                            <BookOpen className="h-5 w-5" aria-hidden="true" />
-                            <span>Đọc bài</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => router.push(`/exam/${sub.id}`)}
-                            className="text-base font-bold bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-lg flex items-center justify-center space-x-2 focus:ring-emerald-500"
-                            aria-label={`Làm bài thi môn ${sub.name}`}
-                          >
-                            <Award className="h-5 w-5" aria-hidden="true" />
-                            <span>{dict.examSittingText}</span>
-                          </button>
+                    {isProcessing && (
+                      <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/30 rounded-xl p-4 flex items-center justify-center space-x-3">
+                        <span className="animate-spin inline-block w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full" aria-hidden="true"></span>
+                        <span className="text-base font-bold text-blue-800 dark:text-blue-400">Trợ lý AI đang phân tích tài liệu...</span>
+                      </div>
+                    )}
+
+                    {isFailed && (
+                      <div className="space-y-4">
+                        <div className="bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 rounded-xl p-4">
+                          <p className="text-base font-bold text-red-800 dark:text-red-400 mb-1">Lỗi phân tích tài liệu!</p>
+                          <p className="text-sm text-red-600 dark:text-red-500 line-clamp-2">{material?.summary_markdown}</p>
                         </div>
                         <button
                           type="button"
@@ -383,14 +420,39 @@ export default function DashboardPage() {
                             setSelectedSubjectId(sub.id);
                             setIsUploadOpen(true);
                           }}
-                          className="text-base font-bold text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 py-3 rounded-lg flex items-center justify-center space-x-2 focus:ring-gray-500"
-                          aria-label={`Đổi tài liệu đính kèm môn ${sub.name}`}
+                          className="w-full text-base font-bold bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-lg flex items-center justify-center space-x-2 focus:ring-blue-500 shadow-md"
+                          aria-label={`Tải lại tài liệu môn ${sub.name}`}
                         >
-                          <Upload className="h-4 w-4" aria-hidden="true" />
-                          <span>{dict.changeAttachmentText}</span>
+                          <Upload className="h-5 w-5" aria-hidden="true" />
+                          <span>Tải lại tài liệu</span>
                         </button>
-                      </>
-                    ) : (
+                      </div>
+                    )}
+
+                    {hasMaterial && (
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          type="button"
+                          onClick={() => router.push(`/subjects/${sub.id}`)}
+                          className="text-base font-bold bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg flex items-center justify-center space-x-2 focus:ring-blue-500"
+                          aria-label={`Đọc tài liệu môn ${sub.name}`}
+                        >
+                          <BookOpen className="h-5 w-5" aria-hidden="true" />
+                          <span>Đọc bài</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => router.push(`/exam/${sub.id}`)}
+                          className="text-base font-bold bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-lg flex items-center justify-center space-x-2 focus:ring-emerald-500"
+                          aria-label={`Làm bài thi môn ${sub.name}`}
+                        >
+                          <Award className="h-5 w-5" aria-hidden="true" />
+                          <span>{dict.examSittingText}</span>
+                        </button>
+                      </div>
+                    )}
+
+                    {!material && (
                       <button
                         type="button"
                         onClick={() => {
@@ -582,7 +644,7 @@ export default function DashboardPage() {
                 )}
               </div>
               <p className="text-sm text-gray-400 dark:text-gray-500">
-                Tài liệu tối đa 15MB
+                Tài liệu tối đa 20MB
               </p>
             </label>
           </div>

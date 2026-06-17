@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     // Lấy danh sách môn học
     const { data: subjects, error } = await supabase
       .from('subjects')
-      .select('*, materials:materials(id, summary_markdown)')
+      .select('*, materials:materials(id, summary_markdown, status)')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
