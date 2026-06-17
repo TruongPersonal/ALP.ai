@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { extractTextFromFile } from '@/lib/extractor';
-import { generateSummary, generateQuestions } from '@/lib/gemini';
+import { generateMaterialDetails } from '@/lib/gemini';
 
 export const maxDuration = 60;
 export async function POST(request: Request) {
@@ -40,18 +40,13 @@ export async function POST(request: Request) {
       );
     }
 
-    // 2. Kích hoạt AI Pipeline độc ​​lập từng đợt gọi Gemini API
+    // 2. Kích hoạt AI Pipeline trong 1 lượt gọi API
     console.log('--- Bắt đầu AI Pipeline cho tài liệu:', fileName);
+    console.log('API Pipeline: Đang sinh tóm tắt môn học và 40 câu hỏi...');
+    
+    const { summaryMarkdown, questions } = await generateMaterialDetails(rawText);
 
-    // Gọi đợt 1: Tạo bản tóm tắt phân cấp logic
-    console.log('API Pipeline: Đang sinh tóm tắt môn học...');
-    const summaryMarkdown = await generateSummary(rawText);
-
-    // Gọi đợt 2 & 3: Sinh ngân hàng 40 câu hỏi
-    console.log('API Pipeline: Đang sinh ngân hàng 40 câu hỏi...');
-    const generatedQuestions = await generateQuestions(rawText);
-
-    console.log(`API Pipeline: Sinh thành công ${generatedQuestions.length} câu hỏi và tóm tắt.`);
+    console.log(`API Pipeline: Sinh thành công ${questions.length} câu hỏi và tóm tắt.`);
 
     // 4. Lưu hoặc cập nhật học liệu vào CSDL
     const { data: material, error: dbError } = await supabase
@@ -60,7 +55,7 @@ export async function POST(request: Request) {
         subject_id: subjectId,
         summary_markdown: summaryMarkdown,
         converted: rawText,
-        questions: generatedQuestions,
+        questions: questions,
       }, {
         onConflict: 'subject_id'
       })
@@ -81,7 +76,7 @@ export async function POST(request: Request) {
         id: material.id,
         subjectId: material.subject_id,
         summaryMarkdown: material.summary_markdown,
-        questionsCount: generatedQuestions.length,
+        questionsCount: questions.length,
         updatedAt: material.updated_at,
       },
     });

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
-import { gradeEssayQuestion } from '@/lib/gemini';
+import { gradeMultipleEssayQuestions, EssayToGrade } from '@/lib/gemini';
 
 export const maxDuration = 60;
 
@@ -165,40 +165,55 @@ export async function PATCH(request: Request) {
       }
     });
 
-    // CHẤM ĐIỂM TỰ LUẬN BẰNG GEMINI AI SONG SONG
+    // CHẤM ĐIỂM TỰ LUẬN BẰNG GEMINI AI GỘP
     const essayQuestions = questionsSnapshot.filter(q => q.type === 'essay');
-    const essayGradingPromises = essayQuestions.map(async (q) => {
+    
+    // Tách các câu có câu trả lời và câu trống
+    const essaysToGrade: EssayToGrade[] = [];
+    const essayResults: { questionId: string; score: number; feedback: string }[] = [];
+
+    essayQuestions.forEach(q => {
       const rawAns = getSafeAnswer(answers, q.id);
       const studentAns = rawAns ? rawAns.trim() : '';
 
       if (!studentAns) {
-        return {
+        essayResults.push({
           questionId: q.id,
           score: 0.0,
-          feedback: 'Bài làm câu này của em đang bỏ trống! Cố gắng lần sau nhé, thầy cô tin em sẽ làm được!'
-        };
-      }
-
-      const criteria = q.explanation || 'Không có tiêu chí cụ thể.';
-
-      try {
-        const gradeResult = await gradeEssayQuestion(q.question_text, criteria, studentAns);
-        return {
-          questionId: q.id,
-          score: gradeResult.score, 
-          feedback: gradeResult.feedback
-        };
-      } catch (err) {
-        console.error(`Lỗi chấm ${q.id}:`, err);
-        return {
-          questionId: q.id,
-          score: 0.0,
-          feedback: ''
-        };
+          feedback: 'Bài làm câu này của em đang bỏ trống! Cố gắng lần sau nhé, hy vọng em sẽ làm bài tốt hơn!'
+        });
+      } else {
+        essaysToGrade.push({
+          id: q.id,
+          questionText: q.question_text,
+          criteria: q.explanation || 'Không có tiêu chí cụ thể.',
+          studentAnswer: studentAns
+        });
       }
     });
 
-    const essayResults = await Promise.all(essayGradingPromises);
+    if (essaysToGrade.length > 0) {
+      try {
+        const gradeResultsMap = await gradeMultipleEssayQuestions(essaysToGrade);
+        essaysToGrade.forEach(item => {
+          const res = gradeResultsMap[item.id] || { score: 0.0, feedback: 'Không thể chấm điểm' };
+          essayResults.push({
+            questionId: item.id,
+            score: res.score,
+            feedback: res.feedback
+          });
+        });
+      } catch (err) {
+        console.error('Lỗi:', err);
+        essaysToGrade.forEach(item => {
+          essayResults.push({
+            questionId: item.id,
+            score: 0.0,
+            feedback: 'Hệ thống gặp sự cố khi chấm bài!'
+          });
+        });
+      }
+    }
 
     let essayScoreSum = 0;
     const essayFeedbacksMap = Object.create(null);
@@ -215,14 +230,7 @@ export async function PATCH(request: Request) {
     // TỔNG HỢP ĐIỂM SỐ TỔNG
     const finalScore = mcScore + essayScoreSum;
 
-    let overallComment = '';
-    if (finalScore >= 90) overallComment = 'Xuất sắc! Bạn đã nắm giữ kiến thức môn học cực kỳ vững chắc.';
-    else if (finalScore >= 75) overallComment = 'Rất tốt! Bài làm thể hiện sự hiểu biết sâu sắc về tài liệu.';
-    else if (finalScore >= 50) overallComment = 'Khá tốt! Bạn đã đạt yêu cầu, tuy nhiên nên xem lại các câu trả lời sai để củng cố kiến thức.';
-    else overallComment = 'Cần cố gắng nhiều hơn! Hãy dành thời gian đọc lại tài liệu tóm tắt môn học và thi lại nhé.';
-
     const finalFeedbackJson = {
-      overall_feedback: overallComment,
       essay_feedbacks: essayFeedbacksMap
     };
 
