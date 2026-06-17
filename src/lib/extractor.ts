@@ -1,3 +1,4 @@
+import './polyfill';
 import 'pdfjs-dist/legacy/build/pdf.worker.mjs';
 import { PDFParse } from 'pdf-parse';
 import mammoth from 'mammoth';

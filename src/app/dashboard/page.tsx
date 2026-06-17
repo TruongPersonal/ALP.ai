@@ -226,11 +226,12 @@ export default function DashboardPage() {
         body: formData,
       });
 
+      const cloneResponse = response.clone();
       let data;
       try {
         data = await response.json();
       } catch (jsonErr) {
-        const text = await response.text();
+        const text = await cloneResponse.text();
         console.error('Phản hồi lỗi từ server:', text);
         throw new Error(`Lỗi định dạng phản hồi (Mã: ${response.status}). Chi tiết: ${text.slice(0, 150)}`);
       }
