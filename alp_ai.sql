@@ -51,7 +51,7 @@ create table alp_ai.attempts (
   answers jsonb not null,
   score numeric(5, 2) not null,
   file_url text,
-  status varchar default 'processing'
+  status varchar default 'processing',
   feedback jsonb,
   completed_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
@@ -61,3 +61,8 @@ create index idx_materials_subject_id on alp_ai.materials(subject_id);
 create index idx_attempts_user_id on alp_ai.attempts(user_id);
 create index idx_attempts_material_id on alp_ai.attempts(material_id);
 create index idx_profiles_login_token on alp_ai.profiles(login_token);
+
+ALTER TABLE alp_ai.profiles DISABLE ROW LEVEL SECURITY;
+ALTER TABLE alp_ai.subjects DISABLE ROW LEVEL SECURITY;
+ALTER TABLE alp_ai.materials DISABLE ROW LEVEL SECURITY;
+ALTER TABLE alp_ai.attempts DISABLE ROW LEVEL SECURITY;

@@ -3,6 +3,7 @@ import { Outfit } from 'next/font/google';
 import { SkipLink } from '@/components/accessible/SkipLink';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
+import { ToastProvider } from '@/components/accessible/ToastProvider';
 import './globals.css';
 
 // Cấu hình font
@@ -16,8 +17,6 @@ export const metadata: Metadata = {
   description: 'Trợ lý số hỗ trợ học tập cho người khiếm thị theo tiêu chuẩn WCAG 2.2.'
 };
 
-
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -27,25 +26,28 @@ export default function RootLayout({
     <html lang="vi" className={`${outfit.variable} h-full antialiased`} suppressHydrationWarning>
       <body className="min-h-full flex flex-col bg-gray-50 dark:bg-gray-950 font-sans text-gray-900 dark:text-gray-100 transition-colors duration-200" suppressHydrationWarning>
         
-        {/* Phím tắt nhảy nhanh */}
-        <SkipLink />
+        <ToastProvider>
+          {/* Phím tắt nhảy nhanh */}
+          <SkipLink />
 
-        {/* Header */}
-        <Header />
+          {/* Header */}
+          <Header />
 
-        {/* Nội dung chính */}
-        <main
-          id="main-content"
-          role="main"
-          className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 focus:outline-none"
-        >
-          {children}
-        </main>
+          {/* Nội dung chính */}
+          <main
+            id="main-content"
+            role="main"
+            className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 focus:outline-none"
+          >
+            {children}
+          </main>
 
-        {/* Footer */}
-        <Footer />
+          {/* Footer */}
+          <Footer />
+        </ToastProvider>
 
       </body>
     </html>
   );
 }
+

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Modal } from '@/components/accessible/Modal';
 import { getAppError } from '@/lib/errorHelper';
+import { useToast } from '@/components/accessible/ToastProvider';
 import { BookOpen, Upload, Plus, Trash2, Edit3, Award, Calendar } from 'lucide-react';
 
 interface UserProfile {
@@ -69,9 +70,9 @@ export default function DashboardPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadStatus, setUploadStatus] = useState('');
   const [uploading, setUploading] = useState(false);
-  const [liveAnnouncement, setLiveAnnouncement] = useState('');
 
   const router = useRouter();
+  const { showToast } = useToast();
 
   // Tải dữ liệu ban đầu
   const fetchData = async (userId: string) => {
@@ -167,7 +168,7 @@ export default function DashboardPage() {
         setSubjectName('');
         setIsAddSubjectOpen(false);
         fetchData(currentUser.id);
-        setLiveAnnouncement('Đã thêm môn học mới thành công.');
+        showToast('Đã thêm môn học', 'success', 'Đã thêm môn học mới thành công.');
       }
     } catch {
       // Bỏ qua lỗi
@@ -194,7 +195,7 @@ export default function DashboardPage() {
         setSelectedSubjectId(null);
         setIsEditSubjectOpen(false);
         fetchData(currentUser.id);
-        setLiveAnnouncement('Đã sửa tên môn học thành công.');
+        showToast('Đã đổi tên môn học', 'success', 'Đã sửa đổi tên môn học mới thành công.');
       }
     } catch {
       // Bỏ qua lỗi
@@ -216,7 +217,7 @@ export default function DashboardPage() {
 
       if (response.ok) {
         fetchData(currentUser.id);
-        setLiveAnnouncement('Đã xóa môn học thành công.');
+        showToast('Đã xóa môn học', 'success', 'Đã xóa môn học thành công.');
       }
     } catch {
       // Bỏ qua lỗi
@@ -248,13 +249,13 @@ export default function DashboardPage() {
     if (selectedFile.size > maxLimit) {
       const appErr = getAppError('file_too_large');
       setUploadStatus(`Thất bại: ${appErr.visual}`);
-      setLiveAnnouncement(appErr.detailed);
+      showToast(appErr.visual, 'error', appErr.detailed);
       return;
     }
 
     setUploading(true);
     setUploadStatus('Đang tải tệp lên...');
-    setLiveAnnouncement('Đang tải tệp lên hệ thống lưu trữ. Vui lòng đợi...');
+    showToast('Đang tải tệp lên...', 'info', 'Đang tải tệp lên hệ thống lưu trữ. Vui lòng đợi...');
 
     try {
       const fileExt = selectedFile.name.split('.').pop() || '';
@@ -277,7 +278,7 @@ export default function DashboardPage() {
         .getPublicUrl(filePath);
 
       setUploadStatus('Đang kích hoạt trợ lý AI...');
-      setLiveAnnouncement('Đã tải tệp thành công, đang khởi tạo trợ lý học tập...');
+      showToast('Đang khởi tạo trợ lý AI...', 'info', 'Đã tải tệp thành công, đang khởi tạo trợ lý học tập...');
 
       const response = await fetch('/api/materials', {
         method: 'POST',
@@ -297,7 +298,7 @@ export default function DashboardPage() {
       }
 
       setUploadStatus('Tải lên thành công! Trợ lý đang xử lý...');
-      setLiveAnnouncement('Tải lên thành công! Trợ lý AI đang phân tích tài liệu trong nền, bạn có thể đóng hộp thoại.');
+      showToast('Tải tài liệu thành công', 'success', 'Tải lên tài liệu học tập thành công! Trợ lý AI đang phân tích tài liệu trong nền, bạn có thể đóng hộp thoại.');
 
       setSelectedFile(null);
       setSelectedSubjectId(null);
@@ -311,7 +312,7 @@ export default function DashboardPage() {
       const errObj = err as Error;
       const appErr = getAppError(errObj.message || 'file_upload_error');
       setUploadStatus(`Thất bại: ${appErr.visual}`);
-      setLiveAnnouncement(appErr.detailed);
+      showToast(appErr.visual, 'error', appErr.detailed);
     } finally {
       setUploading(false);
     }
@@ -321,11 +322,6 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-10">
-
-      {/* Thông báo Screen Reader */}
-      <div role="status" aria-live="polite" className="sr-only">
-        {liveAnnouncement}
-      </div>
 
       {/* Danh sách môn học */}
       <div className="space-y-6">

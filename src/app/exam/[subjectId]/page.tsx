@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Send } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { getAppError } from '@/lib/errorHelper';
+import { useToast } from '@/components/accessible/ToastProvider';
 
 interface Question {
   id: string;
@@ -45,9 +46,9 @@ export default function ExamPage() {
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [liveAnnouncement, setLiveAnnouncement] = useState('');
 
   const examInitialized = useRef(false);
+  const { showToast } = useToast();
   const attemptIdRef = useRef<string | null>(null);
   const isSubmittedRef = useRef(false);
 
@@ -56,7 +57,7 @@ export default function ExamPage() {
     if (!attemptId || submitting) return;
 
     setSubmitting(true);
-    setLiveAnnouncement(MESSAGES.gradingTitle);
+    showToast('Đang chấm bài', 'info', MESSAGES.gradingAria);
 
     try {
       const response = await fetch('/api/exam', {
@@ -76,7 +77,7 @@ export default function ExamPage() {
     } catch (err: unknown) {
       const errObj = err as Error;
       const appErr = getAppError(errObj.message || 'exam_submit_error');
-      alert(appErr.detailed);
+      showToast(appErr.visual, 'error', appErr.detailed);
       setSubmitting(false);
     }
   };
@@ -129,11 +130,11 @@ export default function ExamPage() {
         setAttemptId(data.attemptId || null);
         attemptIdRef.current = data.attemptId || null;
         setQuestions(data.questions || []);
-        setLiveAnnouncement(MESSAGES.examReadyAnnouncement);
+        showToast('Đề thi đã sẵn sàng', 'success', MESSAGES.examReadyAnnouncement);
       } catch (err: unknown) {
         const errObj = err as Error;
         const appErr = getAppError(errObj.message || 'exam_init_error');
-        alert(appErr.detailed);
+        showToast(appErr.visual, 'error', appErr.detailed);
         router.push('/dashboard');
       } finally {
         setLoading(false);
@@ -141,7 +142,7 @@ export default function ExamPage() {
     };
 
     startExam(user.id);
-  }, [subjectId, router]);
+  }, [subjectId, router, showToast]);
 
 
   // Xóa lượt thi dở dang khi thoát trang
@@ -195,9 +196,6 @@ export default function ExamPage() {
   if (submitting) {
     return (
       <div className="text-center py-20" role="status">
-        <div role="status" aria-live="polite" className="sr-only">
-          {MESSAGES.gradingAria}
-        </div>
         <span className="animate-spin inline-block w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full mb-3" aria-hidden="true"></span>
         <p className="text-xl text-gray-500 dark:text-gray-400">{MESSAGES.gradingTitle}</p>
       </div>
@@ -281,8 +279,6 @@ export default function ExamPage() {
 
   return (
     <div className="space-y-8">
-
-      <div role="status" aria-live="polite" className="sr-only">{liveAnnouncement}</div>
 
       <button
         type="button"
