@@ -1,9 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 
-/**
- * GET /api/subjects?userId=...
- */
+// Lấy danh sách môn học
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -16,7 +14,6 @@ export async function GET(request: Request) {
       );
     }
 
-    // Lấy danh sách môn học
     const { data: subjects, error } = await supabase
       .from('subjects')
       .select('*, materials:materials(id, summary_markdown, status)')
@@ -24,7 +21,6 @@ export async function GET(request: Request) {
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Lỗi:', error);
       return NextResponse.json(
         { error: 'Lỗi kết nối tới CSDL!' },
         { status: 500 }
@@ -32,8 +28,7 @@ export async function GET(request: Request) {
     }
 
     return NextResponse.json({ subjects });
-  } catch (error) {
-    console.error('Lỗi:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Đã xảy ra lỗi hệ thống!' },
       { status: 500 }
@@ -41,9 +36,7 @@ export async function GET(request: Request) {
   }
 }
 
-/**
- * POST /api/subjects
- */
+// Thêm môn học
 export async function POST(request: Request) {
   try {
     const { name, userId } = await request.json();
@@ -55,19 +48,18 @@ export async function POST(request: Request) {
       );
     }
 
-    const cleanName = name.trim();
+    const trimmedName = name.trim();
 
     const { data: newSubject, error } = await supabase
       .from('subjects')
       .insert({
-        name: cleanName,
+        name: trimmedName,
         user_id: userId,
       })
       .select()
       .single();
 
     if (error) {
-      console.error('Lỗi:', error);
       return NextResponse.json(
         { error: 'Đã xảy ra lỗi hệ thống!' },
         { status: 500 }
@@ -78,8 +70,7 @@ export async function POST(request: Request) {
       message: 'Thêm môn học thành công!',
       subject: newSubject,
     });
-  } catch (error) {
-    console.error('Lỗi:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Đã xảy ra lỗi hệ thống!' },
       { status: 500 }
@@ -87,9 +78,7 @@ export async function POST(request: Request) {
   }
 }
 
-/**
- * PATCH /api/subjects
- */
+// Cập nhật tên môn học
 export async function PATCH(request: Request) {
   try {
     const { id, name } = await request.json();
@@ -101,19 +90,18 @@ export async function PATCH(request: Request) {
       );
     }
 
-    const cleanName = name.trim();
+    const trimmedName = name.trim();
 
     const { data: updatedSubject, error } = await supabase
       .from('subjects')
       .update({
-        name: cleanName,
+        name: trimmedName,
       })
       .eq('id', id)
       .select()
       .single();
 
     if (error) {
-      console.error('Lỗi:', error);
       return NextResponse.json(
         { error: 'Đã xảy ra lỗi hệ thống!' },
         { status: 500 }
@@ -124,8 +112,7 @@ export async function PATCH(request: Request) {
       message: 'Cập nhật tên môn học thành công!',
       subject: updatedSubject,
     });
-  } catch (error) {
-    console.error('Lỗi:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Đã xảy ra lỗi hệ thống!' },
       { status: 500 }
@@ -133,9 +120,7 @@ export async function PATCH(request: Request) {
   }
 }
 
-/**
- * DELETE /api/subjects?id=...
- */
+// Xóa môn học
 export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -154,7 +139,6 @@ export async function DELETE(request: Request) {
       .eq('id', id);
 
     if (error) {
-      console.error('Lỗi:', error);
       return NextResponse.json(
         { error: 'Đã xảy ra lỗi hệ thống!' },
         { status: 500 }
@@ -164,8 +148,7 @@ export async function DELETE(request: Request) {
     return NextResponse.json({
       message: 'Xóa môn học thành công!',
     });
-  } catch (error) {
-    console.error('Lỗi:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Đã xảy ra lỗi hệ thống!' },
       { status: 500 }

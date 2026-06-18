@@ -1,23 +1,52 @@
+export interface QuestionBankItem {
+  id: string;
+  type: 'multiple_choice' | 'essay';
+  question_text: string;
+  options: string[] | null;
+  correct_answer: string | null;
+  explanation: string;
+}
+
+export interface EssayToGrade {
+  id: string;
+  questionText: string;
+  criteria: string;
+  studentAnswer: string;
+}
+
+export interface EssayGradeResult {
+  score: number;
+  feedback: string;
+}
+
+interface ChatMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
+
+interface ChatBody {
+  model: string;
+  messages: ChatMessage[];
+  max_tokens: number;
+  response_format?: { type: 'json_object' };
+}
+
 const apiKey = process.env.GEMINI_API_KEY;
 const baseUrl = process.env.GEMINI_BASE_URL || 'https://platform.beeknoee.com/api/v1';
 const modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite';
-
-if (!apiKey) {
-  console.warn('GEMINI_API_KEY is missing!');
-}
 
 function isApiAvailable(): boolean {
   return !!apiKey;
 }
 
-// Gọi API Beeknoee tương thích OpenAI
-async function callBeeknoeeChat(
+// Gọi API hoàn thành hội thoại
+async function sendChatRequest(
   systemInstruction: string,
   userPrompt: string,
   responseFormatJson: boolean = false
 ): Promise<string> {
   if (!isApiAvailable()) {
-    throw new Error('API key is missing.');
+    throw new Error('Không tìm thấy API Key.');
   }
 
   const headers: HeadersInit = {
@@ -25,7 +54,7 @@ async function callBeeknoeeChat(
     'Content-Type': 'application/json',
   };
 
-  const body: any = {
+  const body: ChatBody = {
     model: modelName,
     messages: [
       { role: 'system', content: systemInstruction },
@@ -45,45 +74,39 @@ async function callBeeknoeeChat(
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Lỗi:', errorText);
-    throw new Error(`Beeknoee API Error: ${response.status} - ${errorText}`);
+    throw new Error(`Lỗi gọi API: ${response.status}`);
   }
 
-  const data = await response.json();
-  const content = data.choices?.[0]?.message?.content || '';
-  return content;
+  const data = (await response.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+  };
+  return data.choices?.[0]?.message?.content || '';
 }
 
-// Dọn dẹp markdown code block trong chuỗi JSON
+// Làm sạch Markdown Code Block trong JSON trả về
 function cleanJsonResponse(text: string): string {
   let cleaned = text.trim();
   if (cleaned.startsWith('```')) {
-    // Xóa dòng chứa ```json hoặc ``` ở đầu
     cleaned = cleaned.replace(/^```[a-zA-Z]*\n/, '');
-    // Xóa dấu ``` ở cuối
     cleaned = cleaned.replace(/\n```$/, '');
   }
   return cleaned.trim();
 }
 
-/**
- * Helper gọi API Beeknoee có kèm cơ chế thử lại (retry) tự động và phân tích JSON
- */
-async function fetchAndParseDetail(
+// Gửi yêu cầu và phân tích kết quả JSON (tự động thử lại)
+async function fetchAndParseJson<T>(
   systemInstruction: string,
   prompt: string,
   retries: number = 2
-): Promise<any> {
-  let lastError: any;
+): Promise<T> {
+  let lastError: unknown;
   for (let i = 0; i <= retries; i++) {
     try {
-      const responseText = await callBeeknoeeChat(systemInstruction, prompt, true);
+      const responseText = await sendChatRequest(systemInstruction, prompt, true);
       const cleanedText = cleanJsonResponse(responseText);
-      return JSON.parse(cleanedText);
+      return JSON.parse(cleanedText) as T;
     } catch (err) {
       lastError = err;
-      console.warn(`Beeknoee Call failed (attempt ${i + 1}/${retries + 1}):`, err);
       if (i < retries) {
         await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
       }
@@ -92,12 +115,10 @@ async function fetchAndParseDetail(
   throw lastError;
 }
 
-/**
- * Tóm tắt tiếp cận số và sinh ngân hàng 40 câu hỏi qua 5 luồng chạy song song
- */
+// Sinh tóm tắt và ngân hàng đề thi song song 5 luồng
 export async function generateMaterialDetails(rawText: string): Promise<{
   summaryMarkdown: string;
-  questions: any[];
+  questions: QuestionBankItem[];
 }> {
   if (!isApiAvailable()) {
     return { summaryMarkdown: '', questions: [] };
@@ -108,7 +129,6 @@ export async function generateMaterialDetails(rawText: string): Promise<{
 ${rawText}
 ---`;
 
-  // 1. Chỉ dẫn cho luồng sinh Tóm tắt môn học
   const summaryInstruction = `Bạn là chuyên gia thiết kế bài giảng tiếp cận số dành cho người khiếm thị.
 Nhiệm vụ của bạn là dựa trên tài liệu được cung cấp, thiết kế phần tóm tắt môn học (summary_markdown) theo tiêu chuẩn tiếp cận số (WCAG 2.2):
 - Hãy tạo ra một bản tóm tắt môn học cô đọng nhưng đầy đủ kiến thức cốt lõi, định nghĩa và công thức.
@@ -124,7 +144,6 @@ Hãy trả về dữ liệu dưới định dạng JSON có cấu trúc chính x
 }
 `;
 
-  // 2. Chỉ dẫn cho các luồng sinh trắc nghiệm (q1 - q10, q11 - q20, q21 - q30)
   const mcInstruction = (start: number, end: number) => `Bạn là chuyên gia thiết kế khảo thí học thuật dành cho người khiếm thị.
 Nhiệm vụ của bạn là dựa trên tài liệu được cung cấp, thiết kế đúng ${end - start + 1} câu hỏi trắc nghiệm khách quan (type: "multiple_choice") chất lượng cao bám sát nội dung tài liệu.
 Đánh số ID từ q${start} đến q${end}. Mỗi câu có đúng 4 phương án A., B., C., D. rõ ràng, đáp án đúng (correct_answer: "A", "B", "C" hoặc "D") và phần giải thích ngắn gọn (explanation: 1-2 câu).
@@ -145,7 +164,6 @@ Hãy trả về dữ liệu dưới định dạng JSON có cấu trúc chính x
 }
 `;
 
-  // 3. Chỉ dẫn cho luồng sinh tự luận (q31 - q40)
   const essayInstruction = `Bạn là chuyên gia thiết kế khảo thí học thuật dành cho người khiếm thị.
 Nhiệm vụ của bạn là dựa trên tài liệu được cung cấp, thiết kế đúng 10 câu hỏi tự luận thảo luận phân tích (type: "essay") chất lượng cao bám sát nội dung tài liệu.
 Đánh số ID từ q31 đến q40. Đối với câu hỏi tự luận, trường 'options' và 'correct_answer' luôn là null, còn trường 'explanation' chứa tiêu chí chấm điểm và ý chính cực kỳ ngắn gọn (dưới 3 dòng) làm hướng dẫn chấm bài cho AI.
@@ -166,52 +184,29 @@ Hãy trả về dữ liệu dưới định dạng JSON có cấu trúc chính x
 }
 `;
 
-  try {
-    console.log('Khởi động AI Pipeline song song với 5 luồng...');
-    
-    const [summaryRes, mc1Res, mc2Res, mc3Res, essayRes] = await Promise.all([
-      fetchAndParseDetail(summaryInstruction, prompt),
-      fetchAndParseDetail(mcInstruction(1, 10), prompt),
-      fetchAndParseDetail(mcInstruction(11, 20), prompt),
-      fetchAndParseDetail(mcInstruction(21, 30), prompt),
-      fetchAndParseDetail(essayInstruction, prompt)
-    ]);
+  const [summaryRes, mc1Res, mc2Res, mc3Res, essayRes] = await Promise.all([
+    fetchAndParseJson<{ summary_markdown: string }>(summaryInstruction, prompt),
+    fetchAndParseJson<{ questions: QuestionBankItem[] }>(mcInstruction(1, 10), prompt),
+    fetchAndParseJson<{ questions: QuestionBankItem[] }>(mcInstruction(11, 20), prompt),
+    fetchAndParseJson<{ questions: QuestionBankItem[] }>(mcInstruction(21, 30), prompt),
+    fetchAndParseJson<{ questions: QuestionBankItem[] }>(essayInstruction, prompt)
+  ]);
 
-    console.log('Tất cả 5 luồng AI đã hoàn tất phản hồi thành công.');
+  const summaryMarkdown = summaryRes.summary_markdown || '';
+  const questions = [
+    ...(mc1Res.questions || []),
+    ...(mc2Res.questions || []),
+    ...(mc3Res.questions || []),
+    ...(essayRes.questions || [])
+  ];
 
-    const summaryMarkdown = summaryRes.summary_markdown || '';
-    const questions = [
-      ...(mc1Res.questions || []),
-      ...(mc2Res.questions || []),
-      ...(mc3Res.questions || []),
-      ...(essayRes.questions || [])
-    ];
-
-    return {
-      summaryMarkdown,
-      questions
-    };
-  } catch (error: any) {
-    console.error('Lỗi:', error);
-    throw new Error(error.message || 'Không thể tạo tóm tắt và ngân hàng đề thi.');
-  }
+  return {
+    summaryMarkdown,
+    questions
+  };
 }
 
-export interface EssayToGrade {
-  id: string;
-  questionText: string;
-  criteria: string;
-  studentAnswer: string;
-}
-
-export interface EssayGradeResult {
-  score: number;
-  feedback: string;
-}
-
-/**
- * Chấm điểm đồng thời các câu hỏi tự luận
- */
+// Chấm điểm tự luận đồng thời
 export async function gradeMultipleEssayQuestions(
   essays: EssayToGrade[]
 ): Promise<Record<string, EssayGradeResult>> {
@@ -255,34 +250,29 @@ Bài làm của sinh viên: ${e.studentAnswer}
 ${essaysPrompt}
 ---`;
 
-  try {
-    const responseText = await callBeeknoeeChat(systemInstruction, prompt, true);
-    const cleanedText = cleanJsonResponse(responseText);
-    const parsed = JSON.parse(cleanedText);
+  const responseText = await sendChatRequest(systemInstruction, prompt, true);
+  const cleanedText = cleanJsonResponse(responseText);
+  
+  const parsed = JSON.parse(cleanedText) as {
+    grades?: Array<{ id: string; score: number; feedback: string }>;
+  };
 
-    if (parsed.grades && Array.isArray(parsed.grades)) {
-      parsed.grades.forEach((item: any) => {
-        if (item.id) {
-          result[item.id] = {
-            score: typeof item.score === 'number' ? item.score : 0.0,
-            feedback: item.feedback || ''
-          };
-        }
-      });
-    }
-
-    essays.forEach(e => {
-      if (!result[e.id]) {
-        result[e.id] = { score: 0.0, feedback: 'Không thể chấm điểm' };
+  if (parsed.grades && Array.isArray(parsed.grades)) {
+    parsed.grades.forEach(item => {
+      if (item.id) {
+        result[item.id] = {
+          score: typeof item.score === 'number' ? item.score : 0.0,
+          feedback: item.feedback || ''
+        };
       }
     });
-
-    return result;
-  } catch (error: any) {
-    console.error('Lỗi:', error);
-    essays.forEach(e => {
-      result[e.id] = { score: 0.0, feedback: 'Hệ thống gặp sự cố khi chấm bài!' };
-    });
-    return result;
   }
+
+  essays.forEach(e => {
+    if (!result[e.id]) {
+      result[e.id] = { score: 0.0, feedback: 'Không thể chấm điểm' };
+    }
+  });
+
+  return result;
 }

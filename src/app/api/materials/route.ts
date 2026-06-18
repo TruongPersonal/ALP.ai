@@ -7,7 +7,7 @@ export const maxDuration = 60;
 
 export async function POST(request: Request) {
   try {
-    const { fileUrl, fileName, fileMime, subjectId } = await request.json();
+    const { fileUrl, fileMime, subjectId } = await request.json();
 
     if (!fileUrl || !subjectId) {
       return NextResponse.json(
@@ -16,31 +16,31 @@ export async function POST(request: Request) {
       );
     }
 
-    // 1. Tải tài liệu từ URL của Storage để phân tích
+    // Tải tệp từ storage
     let fileBuffer: Buffer;
     try {
       const fileResponse = await fetch(fileUrl);
       if (!fileResponse.ok) {
-        throw new Error(`Tải file từ Storage thất bại: ${fileResponse.statusText}`);
+        throw new Error(`Tải file thất bại: ${fileResponse.statusText}`);
       }
       const arrayBuffer = await fileResponse.arrayBuffer();
       fileBuffer = Buffer.from(arrayBuffer);
-    } catch (fetchError: any) {
-      console.error('Lỗi:', fetchError);
+    } catch (fetchError: unknown) {
+      const err = fetchError as Error;
       return NextResponse.json(
-        { error: `Không thể tải tài liệu: ${fetchError.message}` },
+        { error: `Không thể tải tài liệu: ${err.message}` },
         { status: 422 }
       );
     }
 
-    // 2. Trích xuất văn bản thô từ tài liệu tải về
+    // Trích xuất chữ
     let rawText = '';
     try {
       rawText = await extractTextFromFile(fileBuffer, fileMime);
-    } catch (extractError: any) {
-      console.error('Lỗi trích xuất tài liệu:', extractError);
+    } catch (extractError: unknown) {
+      const err = extractError as Error;
       return NextResponse.json(
-        { error: `Lỗi trích xuất tài liệu: ${extractError.message}` },
+        { error: `Lỗi trích xuất tài liệu: ${err.message}` },
         { status: 422 }
       );
     }
@@ -52,8 +52,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // 3. Khởi tạo/Cập nhật bản ghi materials với trạng thái 'processing'
-    console.log('--- Khởi tạo tài liệu trong CSDL:', fileName);
+    // Khởi tạo trạng thái processing trong CSDL
     const { data: material, error: dbError } = await supabase
       .from('materials')
       .upsert({
@@ -70,23 +69,18 @@ export async function POST(request: Request) {
       .single();
 
     if (dbError) {
-      console.error('Lỗi:', dbError);
       return NextResponse.json(
         { error: 'Không thể cập nhật học liệu vào CSDL!' },
         { status: 500 }
       );
     }
 
-    // 4. Gọi AI Pipeline chạy ngầm dưới nền bằng API after()
+    // Chạy ngầm AI Pipeline
     after(async () => {
       try {
-        console.log('--- Chạy ngầm AI Pipeline cho tài liệu:', fileName);
         const { summaryMarkdown, questions } = await generateMaterialDetails(rawText);
 
-        console.log(`AI Pipeline chạy ngầm hoàn tất. Sinh thành công ${questions.length} câu hỏi.`);
-
-        // Cập nhật trạng thái thành công, tóm tắt và câu hỏi
-        const { error: updateErr } = await supabase
+        await supabase
           .from('materials')
           .update({
             summary_markdown: summaryMarkdown,
@@ -94,18 +88,13 @@ export async function POST(request: Request) {
             status: 'success'
           })
           .eq('id', material.id);
-
-        if (updateErr) {
-          console.error('Lỗi cập nhật CSDL sau AI Pipeline:', updateErr);
-        }
-      } catch (aiError: any) {
-        console.error('Lỗi chạy ngầm AI Pipeline:', aiError);
-        // Cập nhật trạng thái thất bại
+      } catch (aiError: unknown) {
+        const err = aiError as Error;
         await supabase
           .from('materials')
           .update({
             status: 'failed',
-            summary_markdown: `Gặp sự cố khi phân tích tài liệu: ${aiError.message || 'Lỗi hệ thống AI.'}`
+            summary_markdown: `Gặp sự cố khi phân tích tài liệu: ${err.message || 'Lỗi hệ thống AI.'}`
           })
           .eq('id', material.id);
       }
@@ -121,8 +110,7 @@ export async function POST(request: Request) {
       },
     });
 
-  } catch (error: any) {
-    console.error('Lỗi:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Đã xảy ra lỗi hệ thống!' },
       { status: 500 }

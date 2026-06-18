@@ -26,21 +26,21 @@ export function Modal({
       {trigger && <Dialog.Trigger asChild>{trigger}</Dialog.Trigger>}
       
       <Dialog.Portal>
-        {/* Nền mờ phía sau modal */}
+        {/* Nền mờ */}
         <Dialog.Overlay className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm transition-opacity animate-fade-in" />
         
-        {/* Hộp nội dung chính của Modal */}
+        {/* Hộp nội dung */}
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
           <Dialog.Content
             className="w-full max-w-lg rounded-xl bg-white dark:bg-gray-950 p-6 shadow-2xl border border-gray-100 dark:border-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 animate-scale-up"
             aria-describedby="modal-description"
           >
-            {/* Tiêu đề Modal */}
+            {/* Tiêu đề */}
             <Dialog.Title className="text-2xl font-bold text-gray-900 dark:text-white mb-2 focus:outline-none">
               {title}
             </Dialog.Title>
 
-            {/* Mô tả phụ đề */}
+            {/* Mô tả */}
             <Dialog.Description
               id="modal-description"
               className={description ? "text-base text-gray-500 dark:text-gray-400 mb-4" : "sr-only"}
@@ -48,10 +48,10 @@ export function Modal({
               {description || ""}
             </Dialog.Description>
 
-            {/* Nội dung bên trong Modal */}
+            {/* Nội dung */}
             <div className="mt-2">{children}</div>
 
-            {/* Nút đóng modal (X) */}
+            {/* Nút đóng (X) */}
             <Dialog.Close asChild>
               <button
                 type="button"

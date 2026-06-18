@@ -5,7 +5,7 @@ import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import './globals.css';
 
-// Font chữ Outfit hiện đại, dễ nhìn cho người thị lực kém
+// Cấu hình font
 const outfit = Outfit({
   subsets: ['latin'],
   variable: '--font-outfit',
@@ -27,13 +27,13 @@ export default function RootLayout({
     <html lang="vi" className={`${outfit.variable} h-full antialiased`} suppressHydrationWarning>
       <body className="min-h-full flex flex-col bg-gray-50 dark:bg-gray-950 font-sans text-gray-900 dark:text-gray-100 transition-colors duration-200" suppressHydrationWarning>
         
-        {/* Nút nhảy nhanh bỏ qua menu */}
+        {/* Phím tắt nhảy nhanh */}
         <SkipLink />
 
         {/* Header */}
         <Header />
 
-        {/* Nội dung trang chính */}
+        {/* Nội dung chính */}
         <main
           id="main-content"
           role="main"

@@ -1,9 +1,11 @@
+const globalRecord = globalThis as unknown as Record<string, unknown>;
+
 if (typeof globalThis.DOMMatrix === 'undefined') {
-  (globalThis as any).DOMMatrix = class DOMMatrix {};
+  globalRecord.DOMMatrix = class DOMMatrix {};
 }
 if (typeof globalThis.ImageData === 'undefined') {
-  (globalThis as any).ImageData = class ImageData {};
+  globalRecord.ImageData = class ImageData {};
 }
 if (typeof globalThis.Path2D === 'undefined') {
-  (globalThis as any).Path2D = class Path2D {};
+  globalRecord.Path2D = class Path2D {};
 }

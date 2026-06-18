@@ -1,24 +1,20 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
-import { gradeMultipleEssayQuestions, EssayToGrade } from '@/lib/gemini';
+import { gradeMultipleEssayQuestions, EssayToGrade, QuestionBankItem } from '@/lib/gemini';
 
 export const maxDuration = 60;
 
-// Thuật toán xáo trộn Fisher-Yates
-function shuffleArray(array: any[]) {
+// Tráo mảng ngẫu nhiên (Fisher-Yates)
+function shuffleArray<T>(array: T[]): T[] {
   const arr = [...array];
   for (let i = arr.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    const temp = Reflect.get(arr, i);
-    Reflect.set(arr, i, Reflect.get(arr, j));
-    Reflect.set(arr, j, temp);
+    [arr[i], arr[j]] = [arr[j], arr[i]];
   }
   return arr;
 }
 
-/**
- * POST /api/exam
- */
+// Tạo lượt thi mới
 export async function POST(request: Request) {
   try {
     const { userId, materialId } = await request.json();
@@ -37,14 +33,13 @@ export async function POST(request: Request) {
       .single();
 
     if (fetchError || !material) {
-      console.error('Lỗi:', fetchError);
       return NextResponse.json(
         { error: 'Không thể tìm thấy học liệu môn học.' },
         { status: 404 }
       );
     }
 
-    const questionBank = material.questions;
+    const questionBank = material.questions as QuestionBankItem[];
 
     if (!Array.isArray(questionBank)) {
       return NextResponse.json(
@@ -58,18 +53,20 @@ export async function POST(request: Request) {
 
     if (mcQuestions.length < 30 || essayQuestions.length < 10) {
       return NextResponse.json(
-        { error: `Ngân hàng câu hỏi chưa được khởi tạo đầy đủ.` },
+        { error: 'Ngân hàng câu hỏi chưa được khởi tạo đầy đủ.' },
         { status: 422 }
       );
     }
 
+    // Chọn ngẫu nhiên 7 câu trắc nghiệm và 3 câu tự luận
     const selectedMC = shuffleArray(mcQuestions).slice(0, 7);
     const selectedEssay = shuffleArray(essayQuestions).slice(0, 3);
-
     const examQuestionsFull = shuffleArray([...selectedMC, ...selectedEssay]);
 
+    // Loại bỏ đáp án đúng trước khi trả về client
     const clientQuestionsSnapshot = examQuestionsFull.map(q => {
-      const { correct_answer, ...strippedQuestion } = q;
+      const strippedQuestion = { ...q };
+      delete (strippedQuestion as Partial<QuestionBankItem>).correct_answer;
       return strippedQuestion;
     });
 
@@ -87,7 +84,6 @@ export async function POST(request: Request) {
       .single();
 
     if (insertError) {
-      console.error('Lỗi:', insertError);
       return NextResponse.json(
         { error: 'Không thể tạo đề thi.' },
         { status: 500 }
@@ -99,8 +95,7 @@ export async function POST(request: Request) {
       attemptId: attempt.id,
       questions: clientQuestionsSnapshot
     });
-  } catch (error) {
-    console.error('Lỗi:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Đã xảy ra lỗi hệ thống!' },
       { status: 500 }
@@ -108,12 +103,13 @@ export async function POST(request: Request) {
   }
 }
 
-/**
- * PATCH /api/exam
- */
+// Nộp bài và chấm điểm
 export async function PATCH(request: Request) {
   try {
-    const { attemptId, answers } = await request.json();
+    const { attemptId, answers } = (await request.json()) as {
+      attemptId: string;
+      answers: Record<string, string>;
+    };
 
     if (!attemptId || !answers) {
       return NextResponse.json(
@@ -129,14 +125,13 @@ export async function PATCH(request: Request) {
       .single();
 
     if (fetchError || !attempt) {
-      console.error('Lỗi:', fetchError);
       return NextResponse.json(
         { error: 'Không tìm thấy lượt thi.' },
         { status: 404 }
       );
     }
 
-    const questionsSnapshot = attempt.questions_snapshot;
+    const questionsSnapshot = attempt.questions_snapshot as QuestionBankItem[];
     if (!Array.isArray(questionsSnapshot)) {
       return NextResponse.json(
         { error: 'Dữ liệu đề thi bị lỗi!' },
@@ -144,37 +139,33 @@ export async function PATCH(request: Request) {
       );
     }
 
-    const getSafeAnswer = (ansObj: any, questionId: string): string => {
+    const getSafeAnswer = (ansObj: Record<string, string>, questionId: string): string => {
       if (ansObj && typeof ansObj === 'object' && Object.prototype.hasOwnProperty.call(ansObj, questionId)) {
-        const val = Reflect.get(ansObj, questionId);
-        return typeof val === 'string' ? val : '';
+        return ansObj[questionId] || '';
       }
       return '';
     };
 
-    // CHẤM ĐIỂM TRẮC NGHIỆM TỰ ĐỘNG
+    // Chấm trắc nghiệm
     let mcScore = 0;
     const mcQuestions = questionsSnapshot.filter(q => q.type === 'multiple_choice');
 
     mcQuestions.forEach(q => {
       const studentAns = getSafeAnswer(answers, q.id);
-      const correctAns = q.correct_answer;
+      const correctAns = q.correct_answer || '';
 
       if (studentAns && studentAns.trim().toUpperCase() === correctAns.trim().toUpperCase()) {
-        mcScore += 10; // 10 điểm cho 1 câu trắc nghiệm đúng
+        mcScore += 10;
       }
     });
 
-    // CHẤM ĐIỂM TỰ LUẬN BẰNG GEMINI AI GỘP
+    // Chấm tự luận
     const essayQuestions = questionsSnapshot.filter(q => q.type === 'essay');
-    
-    // Tách các câu có câu trả lời và câu trống
     const essaysToGrade: EssayToGrade[] = [];
     const essayResults: { questionId: string; score: number; feedback: string }[] = [];
 
     essayQuestions.forEach(q => {
-      const rawAns = getSafeAnswer(answers, q.id);
-      const studentAns = rawAns ? rawAns.trim() : '';
+      const studentAns = getSafeAnswer(answers, q.id).trim();
 
       if (!studentAns) {
         essayResults.push({
@@ -203,8 +194,7 @@ export async function PATCH(request: Request) {
             feedback: res.feedback
           });
         });
-      } catch (err) {
-        console.error('Lỗi:', err);
+      } catch {
         essaysToGrade.forEach(item => {
           essayResults.push({
             questionId: item.id,
@@ -216,31 +206,25 @@ export async function PATCH(request: Request) {
     }
 
     let essayScoreSum = 0;
-    const essayFeedbacksMap = Object.create(null);
+    const essayFeedbacksMap: Record<string, { score: number; feedback: string }> = {};
 
     essayResults.forEach(res => {
       const questionGrade = Math.min(Math.max(res.score, 0), 10);
       essayScoreSum += questionGrade;
-      Reflect.set(essayFeedbacksMap, res.questionId, {
+      essayFeedbacksMap[res.questionId] = {
         score: questionGrade,
         feedback: res.feedback
-      });
+      };
     });
 
-    // TỔNG HỢP ĐIỂM SỐ TỔNG
     const finalScore = mcScore + essayScoreSum;
 
-    const finalFeedbackJson = {
-      essay_feedbacks: essayFeedbacksMap
-    };
-
-    // CẬP NHẬT KẾT QUẢ VÀO CSDL
     const { data: updatedAttempt, error: updateError } = await supabase
       .from('attempts')
       .update({
         answers: answers,
         score: parseFloat(finalScore.toFixed(2)),
-        feedback: finalFeedbackJson,
+        feedback: { essay_feedbacks: essayFeedbacksMap },
         completed_at: new Date().toISOString()
       })
       .eq('id', attemptId)
@@ -248,7 +232,6 @@ export async function PATCH(request: Request) {
       .single();
 
     if (updateError) {
-      console.error('Lỗi:', updateError);
       return NextResponse.json(
         { error: 'Đã xảy ra lỗi hệ thống!' },
         { status: 500 }
@@ -259,8 +242,7 @@ export async function PATCH(request: Request) {
       message: 'Nộp bài và chấm điểm AI thành công!',
       attempt: updatedAttempt
     });
-  } catch (error) {
-    console.error('Lỗi:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Đã xảy ra lỗi hệ thống!' },
       { status: 500 }
@@ -268,9 +250,7 @@ export async function PATCH(request: Request) {
   }
 }
 
-/**
- * GET /api/exam?attemptId=...
- */
+// Lấy thông tin lượt thi
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -290,7 +270,6 @@ export async function GET(request: Request) {
       .single();
 
     if (error || !attempt) {
-      console.error('Lỗi:', error);
       return NextResponse.json(
         { error: 'Không tìm thấy lượt làm bài thi.' },
         { status: 404 }
@@ -298,8 +277,7 @@ export async function GET(request: Request) {
     }
 
     return NextResponse.json({ attempt });
-  } catch (error) {
-    console.error('Lỗi:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Đã xảy ra lỗi hệ thống!' },
       { status: 500 }
@@ -307,9 +285,7 @@ export async function GET(request: Request) {
   }
 }
 
-/**
- * DELETE /api/exam?attemptId=...
- */
+// Xóa lượt thi
 export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -328,7 +304,6 @@ export async function DELETE(request: Request) {
       .eq('id', attemptId);
 
     if (error) {
-      console.error('Lỗi khi xóa lượt thi:', error);
       return NextResponse.json(
         { error: 'Không thể xóa lượt làm bài thi này.' },
         { status: 500 }
@@ -336,12 +311,10 @@ export async function DELETE(request: Request) {
     }
 
     return NextResponse.json({ message: 'Xóa lượt thi thành công!' });
-  } catch (error) {
-    console.error('Lỗi:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Đã xảy ra lỗi hệ thống!' },
       { status: 500 }
     );
   }
 }
-

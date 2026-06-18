@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Modal } from '@/components/accessible/Modal';
-import { BookOpen, FileText, Upload, Plus, Trash2, Edit3, Award, Calendar } from 'lucide-react';
+import { getAppError } from '@/lib/errorHelper';
+import { BookOpen, Upload, Plus, Trash2, Edit3, Award, Calendar } from 'lucide-react';
 
 interface UserProfile {
   id: string;
@@ -32,22 +33,30 @@ interface Attempt {
   } | null;
 }
 
-const dict = {
+interface AttemptJoinResult {
+  id: string;
+  score: number;
+  completed_at: string;
+  materials: {
+    subjects: {
+      name: string;
+    } | null;
+  } | null;
+}
+
+const MESSAGES = {
   subjectListTitle: 'Danh sách môn học',
   examSittingText: 'Thi thử',
-  changeAttachmentText: 'Đổi tài liệu',
   viewDetailText: 'Xem kết quả'
 };
 
 export default function DashboardPage() {
-  const [user, setUser] = useState<UserProfile | null>(null);
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [attempts, setAttempts] = useState<Attempt[]>([]);
-
-  // Trạng thái tải dữ liệu
   const [loading, setLoading] = useState(true);
 
-  // Trạng thái Modal môn học
+  // Trạng thái Modals
   const [isAddSubjectOpen, setIsAddSubjectOpen] = useState(false);
   const [isEditSubjectOpen, setIsEditSubjectOpen] = useState(false);
   const [subjectName, setSubjectName] = useState('');
@@ -55,51 +64,33 @@ export default function DashboardPage() {
   const [isCreatingSubject, setIsCreatingSubject] = useState(false);
   const [isEditingSubject, setIsEditingSubject] = useState(false);
 
-  // Trạng thái Modal upload học liệu
+  // Upload học liệu
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadStatus, setUploadStatus] = useState('');
   const [uploading, setUploading] = useState(false);
-
-  // Khối aria-live động để thông báo trạng thái tải lên cho Screen Reader
   const [liveAnnouncement, setLiveAnnouncement] = useState('');
 
   const router = useRouter();
 
-  useEffect(() => {
-    document.title = 'Bảng điều khiển, ALP.ai';
-
-    // 1. Xác thực đăng nhập trên Client
-    const savedUser = localStorage.getItem('alp_ai_user');
-    if (!savedUser) {
-      router.push('/');
-      return;
-    }
-    const parsedUser = JSON.parse(savedUser);
-    setUser(parsedUser);
-
-    // 2. Tải dữ liệu ban đầu
-    fetchData(parsedUser.id);
-  }, [router]);
-
+  // Tải dữ liệu ban đầu
   const fetchData = async (userId: string) => {
     setLoading(true);
     try {
-      // Tải danh sách môn học
       const response = await fetch(`/api/subjects?userId=${userId}`);
-      const data = await response.json();
+      const data = (await response.json()) as { subjects?: Subject[] };
       if (response.ok) {
         setSubjects(data.subjects || []);
       }
 
-      // Tự động quét và xóa sạch hoàn toàn các lượt thi dở dang (completed_at is null) của người dùng này khỏi CSDL
+      // Dọn dẹp lượt thi dang dở
       await supabase
         .from('attempts')
         .delete()
         .eq('user_id', userId)
         .is('completed_at', null);
 
-      // Tải lịch sử thi cử
+      // Lấy lịch sử thi
       const { data: attemptsData, error: attemptsError } = await supabase
         .from('attempts')
         .select(`
@@ -117,8 +108,8 @@ export default function DashboardPage() {
         .order('completed_at', { ascending: false });
 
       if (!attemptsError && attemptsData) {
-        // Biến đổi cấu trúc join dữ liệu để dễ hiển thị
-        const formattedAttempts = attemptsData.map((att: any) => ({
+        const typedData = attemptsData as unknown as AttemptJoinResult[];
+        const formattedAttempts = typedData.map(att => ({
           id: att.id,
           score: att.score,
           completed_at: att.completed_at,
@@ -126,46 +117,69 @@ export default function DashboardPage() {
         }));
         setAttempts(formattedAttempts);
       }
-    } catch (err) {
-      console.error('Lỗi tải dữ liệu Dashboard:', err);
+    } catch {
+      // Bỏ qua lỗi âm thầm trên Dashboard
     } finally {
       setLoading(false);
     }
   };
 
+  // Xác thực đăng nhập
+  useEffect(() => {
+    document.title = 'Bảng điều khiển, ALP.ai';
 
+    const savedUserJson = localStorage.getItem('alp_ai_user');
+    if (!savedUserJson) {
+      router.push('/');
+      return;
+    }
+    const parsedUser = JSON.parse(savedUserJson) as UserProfile;
 
-  // -------------------------------------------------------------
-  // THAO TÁC MÔN HỌC (CRUD)
-  // -------------------------------------------------------------
+    let active = true;
+    const initData = () => {
+      if (!active) return;
+      setCurrentUser(parsedUser);
+      fetchData(parsedUser.id);
+    };
+
+    // Defer state update to avoid cascading render lint warning
+    const timer = setTimeout(initData, 0);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [router]);
+
+  // Thêm môn học
   const handleAddSubject = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!subjectName.trim() || !user || isCreatingSubject) return;
+    if (!subjectName.trim() || !currentUser || isCreatingSubject) return;
 
     setIsCreatingSubject(true);
     try {
       const response = await fetch('/api/subjects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: subjectName, userId: user.id }),
+        body: JSON.stringify({ name: subjectName, userId: currentUser.id }),
       });
 
       if (response.ok) {
         setSubjectName('');
         setIsAddSubjectOpen(false);
-        fetchData(user.id);
+        fetchData(currentUser.id);
         setLiveAnnouncement('Đã thêm môn học mới thành công.');
       }
-    } catch (err) {
-      console.error(err);
+    } catch {
+      // Bỏ qua lỗi
     } finally {
       setIsCreatingSubject(false);
     }
   };
 
+  // Sửa môn học
   const handleEditSubject = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!subjectName.trim() || !selectedSubjectId || !user || isEditingSubject) return;
+    if (!subjectName.trim() || !selectedSubjectId || !currentUser || isEditingSubject) return;
 
     setIsEditingSubject(true);
     try {
@@ -179,18 +193,19 @@ export default function DashboardPage() {
         setSubjectName('');
         setSelectedSubjectId(null);
         setIsEditSubjectOpen(false);
-        fetchData(user.id);
+        fetchData(currentUser.id);
         setLiveAnnouncement('Đã sửa tên môn học thành công.');
       }
-    } catch (err) {
-      console.error(err);
+    } catch {
+      // Bỏ qua lỗi
     } finally {
       setIsEditingSubject(false);
     }
   };
 
+  // Xóa môn học
   const handleDeleteSubject = async (id: string) => {
-    if (!user) return;
+    if (!currentUser) return;
     const confirmDelete = window.confirm('Bạn có chắc chắn muốn xóa môn học này không? Mọi học liệu và lịch sử thi liên quan cũng sẽ bị xóa vĩnh viễn.');
     if (!confirmDelete) return;
 
@@ -200,23 +215,22 @@ export default function DashboardPage() {
       });
 
       if (response.ok) {
-        fetchData(user.id);
+        fetchData(currentUser.id);
         setLiveAnnouncement('Đã xóa môn học thành công.');
       }
-    } catch (err) {
-      console.error(err);
+    } catch {
+      // Bỏ qua lỗi
     }
   };
 
-  // -------------------------------------------------------------
-  // THAO TÁC UPLOAD TÀI LIỆU & AI XỬ LÝ
-  // -------------------------------------------------------------
+  // Kiểm tra kích thước tệp
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
-      const maxLimit = 20 * 1024 * 1024; // 20MB
+      const maxLimit = 20 * 1024 * 1024;
       if (file.size > maxLimit) {
-        alert('Kích thước tệp tin vượt quá giới hạn cho phép (Tối đa 20MB).');
+        const appErr = getAppError('file_too_large');
+        alert(appErr.detailed);
         e.target.value = '';
         setSelectedFile(null);
         return;
@@ -225,14 +239,16 @@ export default function DashboardPage() {
     }
   };
 
+  // Tải tệp lên
   const handleUploadMaterial = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedFile || !selectedSubjectId || !user) return;
+    if (!selectedFile || !selectedSubjectId || !currentUser) return;
 
-    const maxLimit = 20 * 1024 * 1024; // 20MB
+    const maxLimit = 20 * 1024 * 1024;
     if (selectedFile.size > maxLimit) {
-      setUploadStatus('Thất bại: Kích thước tệp tin tối đa là 20MB.');
-      setLiveAnnouncement('Kích thước tệp tin vượt quá giới hạn cho phép (Tối đa 20MB).');
+      const appErr = getAppError('file_too_large');
+      setUploadStatus(`Thất bại: ${appErr.visual}`);
+      setLiveAnnouncement(appErr.detailed);
       return;
     }
 
@@ -241,12 +257,11 @@ export default function DashboardPage() {
     setLiveAnnouncement('Đang tải tệp lên hệ thống lưu trữ. Vui lòng đợi...');
 
     try {
-      // 1. Tải tệp lên Supabase Storage bucket 'alp_ai' dưới folder 'materials/'
-      const fileExt = selectedFile.name.split('.').pop();
+      const fileExt = selectedFile.name.split('.').pop() || '';
       const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
       const filePath = `materials/${fileName}`;
 
-      const { data: uploadData, error: uploadErr } = await supabase.storage
+      const { error: uploadErr } = await supabase.storage
         .from('alp_ai')
         .upload(filePath, selectedFile, {
           cacheControl: '3600',
@@ -254,10 +269,9 @@ export default function DashboardPage() {
         });
 
       if (uploadErr) {
-        throw new Error(`Lỗi: ${uploadErr.message}`);
+        throw new Error(uploadErr.message);
       }
 
-      // 2. Lấy URL công khai của tệp vừa tải lên
       const { data: { publicUrl } } = supabase.storage
         .from('alp_ai')
         .getPublicUrl(filePath);
@@ -265,7 +279,6 @@ export default function DashboardPage() {
       setUploadStatus('Đang kích hoạt trợ lý AI...');
       setLiveAnnouncement('Đã tải tệp thành công, đang khởi tạo trợ lý học tập...');
 
-      // 3. Gửi thông tin fileUrl và subjectId lên API để lưu trữ & chạy ngầm AI Pipeline
       const response = await fetch('/api/materials', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -277,7 +290,7 @@ export default function DashboardPage() {
         }),
       });
 
-      const data = await response.json();
+      const data = (await response.json()) as { error?: string };
 
       if (!response.ok) {
         throw new Error(data.error || 'Tải học liệu thất bại.');
@@ -289,40 +302,36 @@ export default function DashboardPage() {
       setSelectedFile(null);
       setSelectedSubjectId(null);
 
-      // Chờ hiển thị trạng thái hoàn thành rồi đóng modal
       setTimeout(() => {
         setIsUploadOpen(false);
-        fetchData(user.id);
+        fetchData(currentUser.id);
       }, 1500);
 
-    } catch (err: any) {
-      console.error(err);
-      setUploadStatus(`Thất bại: ${err.message || 'Lỗi hệ thống.'}`);
-      setLiveAnnouncement(`Gặp sự cố khi tải tệp: ${err.message || 'Lỗi hệ thống.'}`);
+    } catch (err: unknown) {
+      const errObj = err as Error;
+      const appErr = getAppError(errObj.message || 'file_upload_error');
+      setUploadStatus(`Thất bại: ${appErr.visual}`);
+      setLiveAnnouncement(appErr.detailed);
     } finally {
       setUploading(false);
     }
   };
 
-  if (!user) return null;
+  if (!currentUser) return null;
 
   return (
     <div className="space-y-10">
 
-      {/* VÙNG THÔNG BÁO CHỦ ĐỘNG ARIA-LIVE (WCAG Polite Announcement) */}
-      <div
-        role="status"
-        aria-live="polite"
-        className="sr-only"
-      >
+      {/* Thông báo Screen Reader */}
+      <div role="status" aria-live="polite" className="sr-only">
         {liveAnnouncement}
       </div>
 
-      {/* 2. Phần Danh sách Môn học */}
+      {/* Danh sách môn học */}
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
           <h2 className="text-3xl font-extrabold tracking-tight text-gray-900 dark:text-white">
-            {dict.subjectListTitle}
+            {MESSAGES.subjectListTitle}
           </h2>
 
           <button
@@ -350,11 +359,7 @@ export default function DashboardPage() {
             <p className="text-xl text-gray-500 dark:text-gray-400 mb-6">Chưa có môn học nào.</p>
           </div>
         ) : (
-          <ul
-            role="list"
-            aria-label="Danh sách môn học"
-            className="grid grid-cols-1 md:grid-cols-2 gap-6"
-          >
+          <ul role="list" aria-label="Danh sách môn học" className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {subjects.map((sub) => {
               const material = sub.materials;
               const isProcessing = !!material && material.status === 'processing';
@@ -362,18 +367,13 @@ export default function DashboardPage() {
               const hasMaterial = !!material && material.status === 'success';
 
               return (
-                <li
-                  key={sub.id}
-                  className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-sm hover:shadow-md p-6 flex flex-col justify-between transition-all"
-                >
+                <li key={sub.id} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-sm hover:shadow-md p-6 flex flex-col justify-between transition-all">
                   <div className="space-y-4">
-                    {/* Tên môn học là Header Landmark H3 */}
                     <div className="flex items-start justify-between">
                       <h3 className="text-2xl font-extrabold text-gray-900 dark:text-white leading-tight">
                         {sub.name}
                       </h3>
 
-                      {/* Cụm nút CRUD phụ tá góc trên */}
                       <div className="flex space-x-1">
                         <button
                           type="button"
@@ -399,7 +399,6 @@ export default function DashboardPage() {
                     </div>
                   </div>
 
-                  {/* Cụm nút hành động chính bên dưới thẻ card */}
                   <div className="mt-6 grid grid-cols-1 gap-3">
                     {isProcessing && (
                       <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/30 rounded-xl p-4 flex items-center justify-center space-x-3">
@@ -447,7 +446,7 @@ export default function DashboardPage() {
                           aria-label={`Làm bài thi môn ${sub.name}`}
                         >
                           <Award className="h-5 w-5" aria-hidden="true" />
-                          <span>{dict.examSittingText}</span>
+                          <span>{MESSAGES.examSittingText}</span>
                         </button>
                       </div>
                     )}
@@ -474,7 +473,7 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* 3. Phần Lịch sử Thi cử */}
+      {/* Lịch sử thi */}
       <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 shadow-sm transition-colors">
         <h3 className="text-2xl font-extrabold tracking-tight text-gray-900 dark:text-white mb-6">
           Lịch sử bài thi
@@ -517,7 +516,7 @@ export default function DashboardPage() {
                         className="text-blue-600 dark:text-blue-400 font-extrabold underline hover:text-blue-800 focus:ring-blue-500"
                         aria-label={`Xem chi tiết bài làm môn ${att.subjects?.name || 'Môn học đã xóa'}, đạt ${att.score} điểm`}
                       >
-                        {dict.viewDetailText}
+                        {MESSAGES.viewDetailText}
                       </button>
                     </td>
                   </tr>
@@ -528,11 +527,7 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* =========================================================================
-         MỤC MODAL ACCESSIBILITY (Radix UI bọc CSS)
-         ========================================================================= */}
-
-      {/* A. Modal Thêm môn học */}
+      {/* Modals */}
       <Modal
         isOpen={isAddSubjectOpen}
         onClose={setIsAddSubjectOpen}
@@ -569,7 +564,6 @@ export default function DashboardPage() {
         </form>
       </Modal>
 
-      {/* B. Modal Sửa tên môn học */}
       <Modal
         isOpen={isEditSubjectOpen}
         onClose={setIsEditSubjectOpen}
@@ -605,7 +599,6 @@ export default function DashboardPage() {
         </form>
       </Modal>
 
-      {/* C. Modal Upload tài liệu đính kèm & AI xử lý */}
       <Modal
         isOpen={isUploadOpen}
         onClose={(open) => {
@@ -629,10 +622,7 @@ export default function DashboardPage() {
               disabled={uploading}
               className="sr-only"
             />
-            <label
-              htmlFor="material-file"
-              className="cursor-pointer block space-y-4 focus:outline-none"
-            >
+            <label htmlFor="material-file" className="cursor-pointer block space-y-4 focus:outline-none">
               <div className="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 p-4 rounded-full inline-block">
                 <Upload className="h-8 w-8 mx-auto" aria-hidden="true" />
               </div>
@@ -649,10 +639,9 @@ export default function DashboardPage() {
             </label>
           </div>
 
-          {/* Trạng thái tiến trình AI Pipeline bằng aria-live */}
           {uploadStatus && (
             <div
-              className={`rounded-lg p-4 border text-base font-bold animate-fade-in ${uploadStatus.startsWith('Lỗi') || uploadStatus.startsWith('Thất bại') ? 'bg-red-50 dark:bg-red-900/20 border-red-200 text-red-800 dark:text-red-400' : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 text-blue-800 dark:text-blue-400'}`}
+              className={`rounded-lg p-4 border text-base font-bold animate-fade-in ${uploadStatus.startsWith('Thất bại') ? 'bg-red-50 dark:bg-red-900/20 border-red-200 text-red-800 dark:text-red-400' : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 text-blue-800 dark:text-blue-400'}`}
               role="alert"
             >
               <div className="flex items-center space-x-2">

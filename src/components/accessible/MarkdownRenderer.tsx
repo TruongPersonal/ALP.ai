@@ -25,7 +25,7 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeRaw]}
         components={{
-          // Tinh chỉnh tiêu đề H1-H6
+          // Định dạng tiêu đề
           h1: ({ children }) => {
             const text = React.Children.toArray(children).join('');
             return (
@@ -70,13 +70,13 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
               </h4>
             );
           },
-          // Tinh chỉnh đoạn văn xuôi
+          // Định dạng đoạn văn
           p: ({ children }) => (
             <p className="mb-4 text-lg leading-relaxed text-gray-700 dark:text-gray-300">
               {children}
             </p>
           ),
-          // Danh sách gán role="list"
+          // Định dạng danh sách
           ul: ({ children }) => (
             <ul role="list" className="list-disc pl-6 mb-4 space-y-2 text-lg text-gray-700 dark:text-gray-300">
               {children}
@@ -88,7 +88,7 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
             </ol>
           ),
           li: ({ children }) => <li className="leading-relaxed">{children}</li>,
-          // Bảng dữ liệu tiếp cận gán scope="col"
+          // Định dạng bảng
           table: ({ children }) => (
             <div className="overflow-x-auto my-6 rounded-lg border border-gray-200 dark:border-gray-700">
               <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
@@ -116,7 +116,7 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
               {children}
             </td>
           ),
-          // Liên kết an toàn và mô tả rõ đích đến
+          // Định dạng liên kết
           a: ({ href, children }) => {
             const isExternal = href?.startsWith('http');
             const linkText = React.Children.toArray(children).join('');
