@@ -50,6 +50,8 @@ create table alp_ai.attempts (
   questions_snapshot jsonb not null,
   answers jsonb not null,
   score numeric(5, 2) not null,
+  file_url text,
+  status varchar default 'processing'
   feedback jsonb,
   completed_at timestamp with time zone default timezone('utc'::text, now()) not null
 );

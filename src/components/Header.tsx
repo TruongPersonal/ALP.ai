@@ -14,7 +14,6 @@ interface UserProfile {
 
 const MESSAGES = {
   appName: 'ALP.ai',
-  srOnlyAppName: 'Trợ lý số học tập cho người khiếm thị',
   welcomePrefix: 'Xin chào, ',
   signOutText: 'Đăng xuất',
   wcagStandardBadge: 'WCAG 2.2 AA'
@@ -70,7 +69,7 @@ export function Header() {
             aria-hidden="true"
           />
           <h1 className="text-xl font-extrabold tracking-tight text-gray-900 dark:text-white">
-            {MESSAGES.appName} <span className="sr-only">{MESSAGES.srOnlyAppName}</span>
+            {MESSAGES.appName}
           </h1>
         </div>
 

@@ -7,7 +7,6 @@ import { getAppError } from '@/lib/errorHelper';
 const MESSAGES = {
   loginTitle: 'Tham gia hệ thống',
   loginSub: 'Dành cho Người học khiếm thị',
-  inputVoiceGuide: 'Vui lòng nhập mã đăng nhập gồm 6 chữ số (Ví dụ: ALP123).',
   inputLabel: 'Mã đăng nhập',
   inputPlaceholder: 'Ví dụ: ALP123',
   btnSubmit: 'Đăng nhập',
@@ -102,11 +101,7 @@ export function LoginForm() {
               placeholder={MESSAGES.inputPlaceholder}
               className="w-full text-xl font-bold px-4 py-3 rounded-lg border-2 border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-blue-600 dark:focus:border-blue-500 transition-colors"
               aria-required="true"
-              aria-describedby="token-input-description"
             />
-            <span id="token-input-description" className="sr-only">
-              {MESSAGES.inputVoiceGuide}
-            </span>
           </div>
 
           <button
