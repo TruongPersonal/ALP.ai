@@ -66,3 +66,8 @@ ALTER TABLE alp_ai.profiles DISABLE ROW LEVEL SECURITY;
 ALTER TABLE alp_ai.subjects DISABLE ROW LEVEL SECURITY;
 ALTER TABLE alp_ai.materials DISABLE ROW LEVEL SECURITY;
 ALTER TABLE alp_ai.attempts DISABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow public insert" ON storage.objects FOR INSERT TO public WITH CHECK (bucket_id = 'alp_ai');
+CREATE POLICY "Allow public select" ON storage.objects FOR SELECT TO public USING (bucket_id = 'alp_ai');
+CREATE POLICY "Allow public update" ON storage.objects FOR UPDATE TO public USING (bucket_id = 'alp_ai');
+CREATE POLICY "Allow public delete" ON storage.objects FOR DELETE TO public USING (bucket_id = 'alp_ai');
