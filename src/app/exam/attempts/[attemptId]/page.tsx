@@ -36,7 +36,7 @@ interface AttemptDetails {
 const MESSAGES = {
   loadingMsg: 'Đang tải...',
   backToDashboardBtn: 'Trở về',
-  backToDashboardAria: 'Trở về bảng điều khiển chính',
+  backToDashboardAria: 'Trở về bảng điều khiển',
   completedAtPrefix: 'Thời gian hoàn thành: ',
   scoreTitle: 'Điểm số',
   scoreScaleDesc: 'thang điểm 100',
