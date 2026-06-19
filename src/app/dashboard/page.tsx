@@ -400,8 +400,8 @@ export default function DashboardPage() {
                     {isFailed && (
                       <div className="space-y-4">
                         <div className="bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 rounded-xl p-4">
-                          <p className="text-base font-bold text-red-800 dark:text-red-400 mb-1">Lỗi phân tích tài liệu</p>
-                          <p className="text-sm text-red-600 dark:text-red-500 line-clamp-2">Gặp sự cố khi phân tích tài liệu. Vui lòng thử tải lại!</p>
+                          <p className="text-base font-bold text-red-800 dark:text-red-400 mb-1">Lỗi phân tích tài liệu!</p>
+                          <p className="text-sm text-red-600 dark:text-red-500 line-clamp-2">{material?.summary_markdown}</p>
                         </div>
                         <button
                           type="button"
@@ -410,10 +410,10 @@ export default function DashboardPage() {
                             setIsUploadOpen(true);
                           }}
                           className="w-full text-base font-bold bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-lg flex items-center justify-center space-x-2 focus:ring-blue-500 shadow-md"
-                          aria-label={`Tải lên tài liệu đính kèm môn ${sub.name}`}
+                          aria-label={`Tải lại tài liệu môn ${sub.name}`}
                         >
                           <Upload className="h-5 w-5" aria-hidden="true" />
-                          <span>Tải tài liệu</span>
+                          <span>Tải lại tài liệu</span>
                         </button>
                       </div>
                     )}

@@ -1,4 +1,4 @@
-import { NextResponse, after } from 'next/server';
+import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { extractTextFromFile } from '@/lib/extractor';
 import { generateMaterialDetails } from '@/lib/gemini';
@@ -39,6 +39,8 @@ export async function POST(request: Request) {
       rawText = await extractTextFromFile(fileBuffer, fileMime);
     } catch (extractError: unknown) {
       const err = extractError as Error;
+      // Xóa bản ghi cũ nếu có để tránh dữ liệu lỗi
+      await supabase.from('materials').delete().eq('subject_id', subjectId);
       return NextResponse.json(
         { error: `Lỗi trích xuất tài liệu: ${err.message}` },
         { status: 422 }
@@ -46,69 +48,59 @@ export async function POST(request: Request) {
     }
 
     if (!rawText || rawText.trim().length < 50) {
+      await supabase.from('materials').delete().eq('subject_id', subjectId);
       return NextResponse.json(
         { error: 'Nội dung tài liệu trống hoặc không đủ dữ liệu.' },
         { status: 422 }
       );
     }
 
-    // Khởi tạo trạng thái processing trong CSDL
-    const { data: material, error: dbError } = await supabase
-      .from('materials')
-      .upsert({
-        subject_id: subjectId,
-        file_url: fileUrl,
-        status: 'processing',
-        summary_markdown: 'Trợ lý AI đang tóm tắt tài liệu...',
-        converted: rawText,
-        questions: [],
-      }, {
-        onConflict: 'subject_id'
-      })
-      .select()
-      .single();
+    // Phân tích tài liệu bằng AI ngay lập tức
+    try {
+      const { summaryMarkdown, questions } = await generateMaterialDetails(rawText);
 
-    if (dbError) {
+      // Lưu trữ kết quả hoàn chỉnh vào CSDL
+      const { data: material, error: dbError } = await supabase
+        .from('materials')
+        .upsert({
+          subject_id: subjectId,
+          file_url: fileUrl,
+          status: 'success',
+          summary_markdown: summaryMarkdown,
+          converted: rawText,
+          questions: questions,
+        }, {
+          onConflict: 'subject_id'
+        })
+        .select()
+        .single();
+
+      if (dbError) {
+        throw new Error('Không thể lưu học liệu vào cơ sở dữ liệu!');
+      }
+
+      return NextResponse.json({
+        message: 'Tải tài liệu và phân tích thành công!',
+        material: {
+          id: material.id,
+          subjectId: material.subject_id,
+          status: 'success',
+        },
+      });
+
+    } catch (aiError: unknown) {
+      const err = aiError as Error;
+      // Dọn dẹp CSDL nếu bất kỳ bước phân tích AI nào thất bại
+      await supabase
+        .from('materials')
+        .delete()
+        .eq('subject_id', subjectId);
+
       return NextResponse.json(
-        { error: 'Không thể cập nhật học liệu vào CSDL!' },
-        { status: 500 }
+        { error: `Lỗi phân tích tài liệu: ${err.message || 'Lỗi hệ thống AI.'}` },
+        { status: 422 }
       );
     }
-
-    // Chạy ngầm AI Pipeline
-    after(async () => {
-      try {
-        const { summaryMarkdown, questions } = await generateMaterialDetails(rawText);
-
-        await supabase
-          .from('materials')
-          .update({
-            summary_markdown: summaryMarkdown,
-            questions: questions,
-            status: 'success'
-          })
-          .eq('id', material.id);
-      } catch (aiError: unknown) {
-        const err = aiError as Error;
-        await supabase
-          .from('materials')
-          .update({
-            status: 'failed',
-            summary_markdown: `Gặp sự cố khi phân tích tài liệu: ${err.message || 'Lỗi hệ thống AI.'}`
-          })
-          .eq('id', material.id);
-      }
-    });
-
-    return NextResponse.json({
-      message: 'Tải tài liệu thành công. Trợ lý đang phân tích!',
-      material: {
-        id: material.id,
-        subjectId: material.subject_id,
-        status: 'processing',
-        updatedAt: material.updated_at,
-      },
-    });
 
   } catch {
     return NextResponse.json(
