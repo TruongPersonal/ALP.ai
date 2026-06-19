@@ -68,7 +68,6 @@ export default function DashboardPage() {
   // Upload học liệu
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [uploadStatus, setUploadStatus] = useState('');
   const [uploading, setUploading] = useState(false);
 
   const router = useRouter();
@@ -248,13 +247,11 @@ export default function DashboardPage() {
     const maxLimit = 20 * 1024 * 1024;
     if (selectedFile.size > maxLimit) {
       const appErr = getAppError('file_too_large');
-      setUploadStatus(`Thất bại: ${appErr.visual}`);
       showToast(appErr.visual, 'error', appErr.detailed);
       return;
     }
 
     setUploading(true);
-    setUploadStatus('Đang tải tệp lên...');
     showToast('Đang tải tệp lên...', 'info', 'Đang tải tệp lên hệ thống lưu trữ. Vui lòng đợi...');
 
     try {
@@ -277,7 +274,6 @@ export default function DashboardPage() {
         .from('alp_ai')
         .getPublicUrl(filePath);
 
-      setUploadStatus('Đang kích hoạt trợ lý AI...');
       showToast('Đang khởi tạo trợ lý AI...', 'info', 'Đã tải tệp thành công, đang khởi tạo trợ lý học tập...');
 
       const response = await fetch('/api/materials', {
@@ -297,7 +293,6 @@ export default function DashboardPage() {
         throw new Error(data.error || 'Tải học liệu thất bại.');
       }
 
-      setUploadStatus('Tải lên thành công! Trợ lý đang xử lý...');
       showToast('Tải tài liệu thành công', 'success', 'Tải lên tài liệu học tập thành công! Trợ lý AI đang phân tích tài liệu trong nền, bạn có thể đóng hộp thoại.');
 
       setSelectedFile(null);
@@ -311,7 +306,6 @@ export default function DashboardPage() {
     } catch (err: unknown) {
       const errObj = err as Error;
       const appErr = getAppError(errObj.message || 'file_upload_error');
-      setUploadStatus(`Thất bại: ${appErr.visual}`);
       showToast(appErr.visual, 'error', appErr.detailed);
     } finally {
       setUploading(false);
@@ -601,7 +595,6 @@ export default function DashboardPage() {
           if (!uploading) {
             setIsUploadOpen(open);
             setSelectedFile(null);
-            setUploadStatus('');
           }
         }}
         title="Tải tài liệu"
@@ -634,20 +627,6 @@ export default function DashboardPage() {
               </p>
             </label>
           </div>
-
-          {uploadStatus && (
-            <div
-              className={`rounded-lg p-4 border text-base font-bold animate-fade-in ${uploadStatus.startsWith('Thất bại') ? 'bg-red-50 dark:bg-red-900/20 border-red-200 text-red-800 dark:text-red-400' : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 text-blue-800 dark:text-blue-400'}`}
-              role="alert"
-            >
-              <div className="flex items-center space-x-2">
-                {uploading && (
-                  <span className="animate-spin inline-block w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full" aria-hidden="true"></span>
-                )}
-                <span>{uploadStatus}</span>
-              </div>
-            </div>
-          )}
 
           <button
             type="submit"
