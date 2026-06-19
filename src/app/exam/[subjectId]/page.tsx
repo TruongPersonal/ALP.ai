@@ -122,7 +122,7 @@ export default function ExamPage() {
           body: JSON.stringify({ userId, materialId: material.id }),
         });
 
-        const data = (await response.json()) as { error?: string; attemptId?: string; questions?: Question[] };
+        const data = (await response.json()) as { error?: string; attemptId?: string; questions?: Question[]; resumed?: boolean };
 
         if (!response.ok) {
           throw new Error(data.error || 'exam_init_error');
@@ -144,7 +144,9 @@ export default function ExamPage() {
           }
         }
 
-        showToast('Đề thi đã sẵn sàng', 'success', MESSAGES.examReadyAnnouncement);
+        if (!data.resumed) {
+          showToast('Đề thi đã sẵn sàng', 'success', MESSAGES.examReadyAnnouncement);
+        }
       } catch (err: unknown) {
         const errObj = err as Error;
         const appErr = getAppError(errObj.message || 'exam_init_error');
@@ -319,7 +321,7 @@ export default function ExamPage() {
             <ul className="list-disc list-inside space-y-2 text-base">
               <li>Đề thi thử gồm 7 câu hỏi trắc nghiệm và 3 câu hỏi tự luận bám sát tài liệu học tập của bạn.</li>
               <li>Không giới hạn thời gian làm bài, bạn có thể thực hiện bài làm một cách kỹ lưỡng.</li>
-              <li>Nếu bạn thoát trang hoặc tải lại trình duyệt, lượt thi hiện tại sẽ không được ghi nhận vào lịch sử.</li>
+              <li>Nếu bạn thoát trang, lượt thi hiện tại sẽ không được ghi nhận vào lịch sử.</li>
             </ul>
           </div>
 

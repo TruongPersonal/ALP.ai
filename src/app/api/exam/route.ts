@@ -47,7 +47,8 @@ export async function POST(request: Request) {
       return NextResponse.json({
         message: 'Tiếp tục lượt thi hiện tại!',
         attemptId: activeAttempt.id,
-        questions: clientQuestionsSnapshot
+        questions: clientQuestionsSnapshot,
+        resumed: true
       });
     }
 
