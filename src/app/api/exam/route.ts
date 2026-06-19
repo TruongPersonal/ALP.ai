@@ -26,6 +26,31 @@ export async function POST(request: Request) {
       );
     }
 
+    // Kiểm tra xem có lượt thi nào đang dở dang hay không
+    const { data: activeAttempt, error: activeError } = await supabase
+      .from('attempts')
+      .select('id, questions_snapshot')
+      .eq('user_id', userId)
+      .eq('material_id', materialId)
+      .is('feedback', null)
+      .limit(1)
+      .maybeSingle();
+
+    if (!activeError && activeAttempt) {
+      const questionsSnapshot = activeAttempt.questions_snapshot as QuestionBankItem[];
+      const clientQuestionsSnapshot = questionsSnapshot.map(q => {
+        const strippedQuestion = { ...q };
+        delete (strippedQuestion as Partial<QuestionBankItem>).correct_answer;
+        return strippedQuestion;
+      });
+
+      return NextResponse.json({
+        message: 'Tiếp tục lượt thi hiện tại!',
+        attemptId: activeAttempt.id,
+        questions: clientQuestionsSnapshot
+      });
+    }
+
     const { data: material, error: fetchError } = await supabase
       .from('materials')
       .select('questions')

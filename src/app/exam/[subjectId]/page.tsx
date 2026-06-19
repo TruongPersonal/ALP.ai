@@ -73,6 +73,7 @@ export default function ExamPage() {
       }
 
       isSubmittedRef.current = true;
+      localStorage.removeItem(`exam_draft_${attemptId}`);
       router.push(`/exam/attempts/${attemptId}`);
     } catch (err: unknown) {
       const errObj = err as Error;
@@ -130,6 +131,19 @@ export default function ExamPage() {
         setAttemptId(data.attemptId || null);
         attemptIdRef.current = data.attemptId || null;
         setQuestions(data.questions || []);
+
+        // Khôi phục bài làm nháp từ localStorage nếu có
+        if (data.attemptId) {
+          const savedDraft = localStorage.getItem(`exam_draft_${data.attemptId}`);
+          if (savedDraft) {
+            try {
+              setAnswers(JSON.parse(savedDraft));
+            } catch {
+              // Bỏ qua lỗi parse
+            }
+          }
+        }
+
         showToast('Đề thi đã sẵn sàng', 'success', MESSAGES.examReadyAnnouncement);
       } catch (err: unknown) {
         const errObj = err as Error;
@@ -145,36 +159,17 @@ export default function ExamPage() {
   }, [subjectId, router, showToast]);
 
 
-  // Xóa lượt thi dở dang khi thoát trang
-  useEffect(() => {
-    const handleUnload = () => {
-      if (attemptIdRef.current && !isSubmittedRef.current) {
-        const url = `/api/exam?attemptId=${attemptIdRef.current}`;
-        fetch(url, {
-          method: 'DELETE',
-          keepalive: true
-        }).catch(() => {});
-      }
-    };
-
-    window.addEventListener('beforeunload', handleUnload);
-
-    return () => {
-      window.removeEventListener('beforeunload', handleUnload);
-      if (attemptIdRef.current && !isSubmittedRef.current) {
-        fetch(`/api/exam?attemptId=${attemptIdRef.current}`, {
-          method: 'DELETE',
-          keepalive: true
-        }).catch(() => {});
-      }
-    };
-  }, []);
-
   const handleAnswerChange = (questionId: string, value: string) => {
-    setAnswers(prev => ({
-      ...prev,
-      [questionId]: value
-    }));
+    setAnswers(prev => {
+      const next = {
+        ...prev,
+        [questionId]: value
+      };
+      if (attemptIdRef.current) {
+        localStorage.setItem(`exam_draft_${attemptIdRef.current}`, JSON.stringify(next));
+      }
+      return next;
+    });
   };
 
   const handleSubmitClick = (e: React.FormEvent) => {
@@ -284,7 +279,16 @@ export default function ExamPage() {
         type="button"
         onClick={() => {
           const confirmExit = window.confirm(MESSAGES.exitExamConfirm);
-          if (confirmExit) router.push('/dashboard');
+          if (confirmExit) {
+            if (attemptIdRef.current) {
+              localStorage.removeItem(`exam_draft_${attemptIdRef.current}`);
+              fetch(`/api/exam?attemptId=${attemptIdRef.current}`, {
+                method: 'DELETE',
+                keepalive: true
+              }).catch(() => {});
+            }
+            router.push('/dashboard');
+          }
         }}
         className="w-full sm:w-auto text-lg font-bold text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 px-5 py-3 rounded-lg transition-colors flex items-center justify-center space-x-2 focus:outline-none focus:ring-2 focus:ring-gray-500"
         aria-label={MESSAGES.exitExamAria}
@@ -313,7 +317,7 @@ export default function ExamPage() {
           <div className="space-y-1.5">
             <h3 className="text-lg font-extrabold text-gray-900 dark:text-white">Quy chế thi thử</h3>
             <ul className="list-disc list-inside space-y-2 text-base">
-              <li>Đề thi thử gồm 30 câu hỏi trắc nghiệm và 10 câu hỏi tự luận bám sát tài liệu học tập của bạn.</li>
+              <li>Đề thi thử gồm 7 câu hỏi trắc nghiệm và 3 câu hỏi tự luận bám sát tài liệu học tập của bạn.</li>
               <li>Không giới hạn thời gian làm bài, bạn có thể thực hiện bài làm một cách kỹ lưỡng.</li>
               <li>Nếu bạn thoát trang hoặc tải lại trình duyệt, lượt thi hiện tại sẽ không được ghi nhận vào lịch sử.</li>
             </ul>

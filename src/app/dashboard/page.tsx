@@ -88,7 +88,7 @@ export default function DashboardPage() {
         .from('attempts')
         .delete()
         .eq('user_id', userId)
-        .is('completed_at', null);
+        .is('feedback', null);
 
       // Lấy lịch sử thi
       const { data: attemptsData, error: attemptsError } = await supabase
@@ -104,7 +104,7 @@ export default function DashboardPage() {
           )
         `)
         .eq('user_id', userId)
-        .not('completed_at', 'is', null)
+        .not('feedback', 'is', null)
         .order('completed_at', { ascending: false });
 
       if (!attemptsError && attemptsData) {
