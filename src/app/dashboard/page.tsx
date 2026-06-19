@@ -331,6 +331,50 @@ export default function DashboardPage() {
   return (
     <div className="space-y-10">
 
+      {/* Hướng dẫn sử dụng & Trợ năng */}
+      <details className="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 shadow-sm [&_summary::-webkit-details-marker]:hidden">
+        <summary className="flex items-center justify-between font-bold text-xl cursor-pointer list-none focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg p-1 text-gray-800 dark:text-gray-200 select-none">
+          <span className="flex items-center space-x-2.5">
+            <span className="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 p-2 rounded-lg" aria-hidden="true">
+              <BookOpen className="h-6 w-6" />
+            </span>
+            <span>Hướng dẫn sử dụng và Phím tắt trợ năng</span>
+          </span>
+          <span className="transition group-open:rotate-180 text-gray-500 dark:text-gray-400">
+            <svg fill="none" height="24" width="24" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 9l6 6 6-6"></path>
+            </svg>
+          </span>
+        </summary>
+
+        <div className="mt-6 border-t border-gray-100 dark:border-gray-800 pt-6 space-y-6 text-gray-700 dark:text-gray-300">
+          <div className="space-y-2">
+            <h3 className="text-lg font-extrabold text-gray-900 dark:text-white">1. Phím tắt di chuyển nhanh (Skip Link)</h3>
+            <p className="text-base leading-relaxed">
+              Ngay khi tải trang, bạn có thể nhấn phím <kbd className="px-2 py-1 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-sm font-semibold">Tab</kbd> để kích hoạt liên kết nhảy nhanh giúp bỏ qua thanh điều hướng và đi thẳng đến vùng nội dung chính.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <h3 className="text-lg font-extrabold text-gray-900 dark:text-white">2. Quy trình học tập & Phân tích AI</h3>
+            <ul className="list-decimal list-inside space-y-2.5 text-base">
+              <li><strong>Tạo môn học</strong>: Nhấn nút <span className="font-bold">&ldquo;Thêm môn học&rdquo;</span> ở góc phải màn hình.</li>
+              <li><strong>Tải tài liệu và phân tích</strong>: Nhấn nút <span className="font-bold">&ldquo;Tải tài liệu&rdquo;</span> trên thẻ môn học. Hãy chọn tệp tài liệu PDF hoặc DOCX (tối đa 20MB) có chứa chữ để AI tóm tắt và sinh ngân hàng đề thi.</li>
+              <li><strong>Xem kết quả trực tiếp</strong>: Hệ thống sẽ hiển thị các bước trích xuất và phân tích trực tiếp thông qua thông báo Toast. Vui lòng giữ hộp thoại mở cho đến khi có thông báo hoàn thành.</li>
+              <li><strong>Bắt đầu học và thi</strong>: Sau khi hoàn tất thành công, môn học sẽ mở khóa hai chức năng là <span className="font-bold">&ldquo;Đọc bài&rdquo;</span> (xem bản tóm tắt thân thiện với người khiếm thị) và <span className="font-bold">&ldquo;Thi thử&rdquo;</span> (làm đề trắc nghiệm và tự luận do AI chấm điểm).</li>
+            </ul>
+          </div>
+
+          <div className="space-y-2">
+            <h3 className="text-lg font-extrabold text-gray-900 dark:text-white">3. Mẹo di chuyển với trình đọc màn hình (Screen Reader)</h3>
+            <ul className="list-disc list-inside space-y-2 text-base">
+              <li>Sử dụng các phím tiêu đề (<kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-sm">H</kbd>) để duyệt nhanh giữa các môn học và mục lịch sử thi.</li>
+              <li>Các thông báo tiến trình hay trạng thái thành công sẽ được VoiceOver/NVDA tự động phát trực tiếp qua live region mà không chặn tương tác của bạn.</li>
+            </ul>
+          </div>
+        </div>
+      </details>
+
       {/* Danh sách môn học */}
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
