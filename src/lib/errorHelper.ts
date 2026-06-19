@@ -17,7 +17,7 @@ export function getAppError(messageOrCode: string | null | undefined): AppError 
   const msg = messageOrCode.trim().toLowerCase();
 
   // Đăng nhập
-  if (msg.includes('mã đăng nhập') || msg.includes('token') || msg.includes('login_token')) {
+  if (msg.includes('mã đăng nhập') || msg.includes('login_token')) {
     if (msg.includes('trống') || msg.includes('cung cấp')) {
       return {
         visual: 'Nhập mã đăng nhập!',
