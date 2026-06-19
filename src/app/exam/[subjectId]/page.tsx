@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Send } from 'lucide-react';
+import { ArrowLeft, Send, BookOpen } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { getAppError } from '@/lib/errorHelper';
 import { useToast } from '@/components/accessible/ToastProvider';
@@ -292,6 +292,43 @@ export default function ExamPage() {
         <ArrowLeft className="h-5 w-5" aria-hidden="true" />
         <span>{MESSAGES.exitExamBtn}</span>
       </button>
+
+      {/* Hướng dẫn làm bài */}
+      <details className="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 shadow-sm [&_summary::-webkit-details-marker]:hidden">
+        <summary className="flex items-center justify-between font-bold text-xl cursor-pointer list-none focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg p-1 text-gray-800 dark:text-gray-200 select-none">
+          <span className="flex items-center space-x-2.5">
+            <span className="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 p-2 rounded-lg" aria-hidden="true">
+              <BookOpen className="h-6 w-6" />
+            </span>
+            <span>Hướng dẫn làm bài</span>
+          </span>
+          <span className="transition group-open:rotate-180 text-gray-500 dark:text-gray-400">
+            <svg fill="none" height="24" width="24" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 9l6 6 6-6"></path>
+            </svg>
+          </span>
+        </summary>
+
+        <div className="mt-6 border-t border-gray-100 dark:border-gray-800 pt-6 space-y-4 text-gray-700 dark:text-gray-300">
+          <div className="space-y-1.5">
+            <h3 className="text-lg font-extrabold text-gray-900 dark:text-white">Quy chế thi thử</h3>
+            <ul className="list-disc list-inside space-y-2 text-base">
+              <li>Đề thi thử gồm 30 câu hỏi trắc nghiệm và 10 câu hỏi tự luận bám sát tài liệu học tập của bạn.</li>
+              <li>Không giới hạn thời gian làm bài, bạn có thể thực hiện bài làm một cách kỹ lưỡng.</li>
+              <li>Nếu bạn thoát trang hoặc tải lại trình duyệt, lượt thi hiện tại sẽ không được ghi nhận vào lịch sử.</li>
+            </ul>
+          </div>
+
+          <div className="space-y-1.5">
+            <h3 className="text-lg font-extrabold text-gray-900 dark:text-white">Mẹo di chuyển</h3>
+            <ul className="list-decimal list-inside space-y-2 text-base">
+              <li><strong>Phần trắc nghiệm</strong>: Sử dụng phím mũi tên hoặc nhấn chọn để thay đổi các đáp án (A, B, C, D) cho từng câu hỏi.</li>
+              <li><strong>Phần tự luận</strong>: Sử dụng phím <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-sm">Tab</kbd> để nhảy đến ô nhập câu trả lời, gõ nội dung làm bài chi tiết của bạn vào đó.</li>
+              <li><strong>Nộp bài</strong>: Sau khi hoàn thành tất cả các câu hỏi, di chuyển tới cuối trang và nhấn nút <span className="font-bold">&ldquo;Nộp bài&rdquo;</span>. Trợ lý AI sẽ chấm điểm thang và nhận xét chi tiết sau vài giây.</li>
+            </ul>
+          </div>
+        </div>
+      </details>
 
       <form onSubmit={handleSubmitClick} className="space-y-12">
 

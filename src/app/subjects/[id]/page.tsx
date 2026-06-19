@@ -108,7 +108,7 @@ export default function StudyPage() {
         </p>
       </div>
 
-      <div 
+      <div
         id="summary-content"
         className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 sm:p-8 shadow-sm transition-all"
       >
