@@ -254,6 +254,9 @@ export default function DashboardPage() {
     setUploading(true);
     showToast('Đang tải tệp lên...', 'info', 'Đang tải tệp lên hệ thống lưu trữ. Vui lòng đợi...');
 
+    let timer1: NodeJS.Timeout | null = null;
+    let timer2: NodeJS.Timeout | null = null;
+
     try {
       const fileExt = selectedFile.name.split('.').pop() || '';
       const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
@@ -274,7 +277,13 @@ export default function DashboardPage() {
         .from('alp_ai')
         .getPublicUrl(filePath);
 
-      showToast('Đang khởi tạo trợ lý AI...', 'info', 'Đã tải tệp thành công, đang khởi tạo trợ lý học tập...');
+      // Bước 2: Bắt đầu trích xuất chữ
+      showToast('Đang trích xuất văn bản...', 'info', 'Đang đọc và trích xuất chữ từ tài liệu. Vui lòng đợi...');
+
+      // Bước 3: Đổi sang "Trợ lý AI đang làm việc..." sau 2.5s (trong lúc đang fetch)
+      timer1 = setTimeout(() => {
+        showToast('Trợ lý AI đang làm việc...', 'info', 'Trợ lý AI đang tóm tắt nội dung và soạn đề thi. Vui lòng đợi...');
+      }, 2500);
 
       const response = await fetch('/api/materials', {
         method: 'POST',
@@ -287,23 +296,28 @@ export default function DashboardPage() {
         }),
       });
 
+      if (timer1) clearTimeout(timer1);
+
       const data = (await response.json()) as { error?: string };
 
       if (!response.ok) {
         throw new Error(data.error || 'Tải học liệu thất bại.');
       }
 
-      showToast('Tải tài liệu thành công', 'success', 'Tải lên tài liệu học tập thành công! Trợ lý AI đang phân tích tài liệu trong nền, bạn có thể đóng hộp thoại.');
+      // Bước 4: Hoàn thành!
+      showToast('Hoàn thành!', 'success', 'Tải và phân tích thành công. Bài học đã sẵn sàng!');
 
       setSelectedFile(null);
       setSelectedSubjectId(null);
 
-      setTimeout(() => {
+      timer2 = setTimeout(() => {
         setIsUploadOpen(false);
         fetchData(currentUser.id);
       }, 1500);
 
     } catch (err: unknown) {
+      if (timer1) clearTimeout(timer1);
+      if (timer2) clearTimeout(timer2);
       const errObj = err as Error;
       const appErr = getAppError(errObj.message || 'file_upload_error');
       showToast(appErr.visual, 'error', appErr.detailed);
@@ -352,8 +366,6 @@ export default function DashboardPage() {
           <ul role="list" aria-label="Danh sách môn học" className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {subjects.map((sub) => {
               const material = sub.materials;
-              const isProcessing = !!material && material.status === 'processing';
-              const isFailed = !!material && material.status === 'failed';
               const hasMaterial = !!material && material.status === 'success';
 
               return (
@@ -390,35 +402,7 @@ export default function DashboardPage() {
                   </div>
 
                   <div className="mt-6 grid grid-cols-1 gap-3">
-                    {isProcessing && (
-                      <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/30 rounded-xl p-4 flex items-center justify-center space-x-3">
-                        <span className="animate-spin inline-block w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full" aria-hidden="true"></span>
-                        <span className="text-base font-bold text-blue-800 dark:text-blue-400">Trợ lý AI đang phân tích tài liệu...</span>
-                      </div>
-                    )}
-
-                    {isFailed && (
-                      <div className="space-y-4">
-                        <div className="bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 rounded-xl p-4">
-                          <p className="text-base font-bold text-red-800 dark:text-red-400 mb-1">Lỗi phân tích tài liệu!</p>
-                          <p className="text-sm text-red-600 dark:text-red-500 line-clamp-2">{material?.summary_markdown}</p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedSubjectId(sub.id);
-                            setIsUploadOpen(true);
-                          }}
-                          className="w-full text-base font-bold bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-lg flex items-center justify-center space-x-2 focus:ring-blue-500 shadow-md"
-                          aria-label={`Tải lại tài liệu môn ${sub.name}`}
-                        >
-                          <Upload className="h-5 w-5" aria-hidden="true" />
-                          <span>Tải lại tài liệu</span>
-                        </button>
-                      </div>
-                    )}
-
-                    {hasMaterial && (
+                    {hasMaterial ? (
                       <div className="grid grid-cols-2 gap-3">
                         <button
                           type="button"
@@ -439,17 +423,15 @@ export default function DashboardPage() {
                           <span>{MESSAGES.examSittingText}</span>
                         </button>
                       </div>
-                    )}
-
-                    {!material && (
+                    ) : (
                       <button
                         type="button"
                         onClick={() => {
                           setSelectedSubjectId(sub.id);
                           setIsUploadOpen(true);
                         }}
-                        className="text-base font-bold bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-lg flex items-center justify-center space-x-2 focus:ring-blue-500 shadow-md"
-                        aria-label={`Tải lên tài liệu đính kèm môn ${sub.name}`}
+                        className="w-full text-base font-bold bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-lg flex items-center justify-center space-x-2 focus:ring-blue-500 shadow-md"
+                        aria-label={`Tải tài liệu môn ${sub.name}`}
                       >
                         <Upload className="h-5 w-5" aria-hidden="true" />
                         <span>Tải tài liệu</span>
