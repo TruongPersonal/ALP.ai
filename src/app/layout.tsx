@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { Outfit } from 'next/font/google';
 import { SkipLink } from '@/components/accessible/SkipLink';
-import { GlobalShortcuts } from '@/components/accessible/GlobalShortcuts';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { ToastProvider } from '@/components/accessible/ToastProvider';
@@ -28,9 +27,6 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col bg-gray-50 dark:bg-gray-950 font-sans text-gray-900 dark:text-gray-100 transition-colors duration-200" suppressHydrationWarning>
         
         <ToastProvider>
-          {/* Phím tắt toàn cục */}
-          <GlobalShortcuts />
-
           {/* Phím tắt nhảy nhanh */}
           <SkipLink />
 

@@ -47,7 +47,15 @@ export function getAppError(messageOrCode: string | null | undefined): AppError 
   }
 
   // Tệp học liệu
-  if (msg.includes('20mb') || msg.includes('kích thước') || msg.includes('dung lượng') || msg.includes('size')) {
+  if (
+    msg.includes('large') ||
+    msg.includes('too_large') ||
+    msg.includes('to_large') ||
+    msg.includes('20mb') ||
+    msg.includes('kích thước') ||
+    msg.includes('dung lượng') ||
+    msg.includes('size')
+  ) {
     return {
       visual: 'Tệp vượt quá 20MB!',
       detailed: 'Dung lượng tệp lớn hơn 20 Megabyte. Vui lòng chọn tệp nhỏ hơn.'

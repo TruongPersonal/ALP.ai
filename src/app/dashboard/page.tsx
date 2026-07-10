@@ -3,10 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { Modal } from '@/components/accessible/Modal';
-import { getAppError } from '@/lib/errorHelper';
 import { useToast } from '@/components/accessible/ToastProvider';
-import { BookOpen, Upload, Plus, Trash2, Edit3, Award, Calendar } from 'lucide-react';
+import { BookOpen, Award, HelpCircle, Calendar, ArrowRight, Activity, TrendingUp } from 'lucide-react';
 
 interface UserProfile {
   id: string;
@@ -17,12 +15,6 @@ interface UserProfile {
 interface Subject {
   id: string;
   name: string;
-  created_at: string;
-  materials: {
-    id: string;
-    summary_markdown: string;
-    status: string;
-  } | null;
 }
 
 interface Attempt {
@@ -45,52 +37,26 @@ interface AttemptJoinResult {
   } | null;
 }
 
-const MESSAGES = {
-  subjectListTitle: 'Danh sách môn học',
-  examSittingText: 'Thi thử',
-  viewDetailText: 'Xem kết quả'
-};
-
 export default function DashboardPage() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
-  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [subjectsCount, setSubjectsCount] = useState(0);
   const [attempts, setAttempts] = useState<Attempt[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Trạng thái Modals
-  const [isAddSubjectOpen, setIsAddSubjectOpen] = useState(false);
-  const [isEditSubjectOpen, setIsEditSubjectOpen] = useState(false);
-  const [subjectName, setSubjectName] = useState('');
-  const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
-  const [isCreatingSubject, setIsCreatingSubject] = useState(false);
-  const [isEditingSubject, setIsEditingSubject] = useState(false);
-
-  // Upload học liệu
-  const [isUploadOpen, setIsUploadOpen] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
-
   const router = useRouter();
-  const { showToast } = useToast();
 
   // Tải dữ liệu ban đầu
   const fetchData = async (userId: string) => {
     setLoading(true);
     try {
+      // 1. Lấy danh sách môn học để đếm số lượng
       const response = await fetch(`/api/subjects?userId=${userId}`);
       const data = (await response.json()) as { subjects?: Subject[] };
       if (response.ok) {
-        setSubjects(data.subjects || []);
+        setSubjectsCount(data.subjects?.length || 0);
       }
 
-      // Dọn dẹp lượt thi dang dở
-      await supabase
-        .from('attempts')
-        .delete()
-        .eq('user_id', userId)
-        .is('feedback', null);
-
-      // Lấy lịch sử thi
+      // 2. Lấy lịch sử thi đã hoàn thành của người dùng
       const { data: attemptsData, error: attemptsError } = await supabase
         .from('attempts')
         .select(`
@@ -126,7 +92,7 @@ export default function DashboardPage() {
 
   // Xác thực đăng nhập
   useEffect(() => {
-    document.title = 'Bảng điều khiển, ALP.ai';
+    document.title = 'Bảng tổng quan, ALP.ai';
 
     const savedUserJson = localStorage.getItem('alp_ai_user');
     if (!savedUserJson) {
@@ -142,7 +108,6 @@ export default function DashboardPage() {
       fetchData(parsedUser.id);
     };
 
-    // Defer state update to avoid cascading render lint warning
     const timer = setTimeout(initData, 0);
     return () => {
       active = false;
@@ -150,382 +115,203 @@ export default function DashboardPage() {
     };
   }, [router]);
 
-  // Thêm môn học
-  const handleAddSubject = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!subjectName.trim() || !currentUser || isCreatingSubject) return;
-
-    setIsCreatingSubject(true);
-    try {
-      const response = await fetch('/api/subjects', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: subjectName, userId: currentUser.id }),
-      });
-
-      if (response.ok) {
-        setSubjectName('');
-        setIsAddSubjectOpen(false);
-        fetchData(currentUser.id);
-        showToast('Đã thêm môn học', 'success', 'Đã thêm môn học mới thành công.');
-      }
-    } catch {
-      // Bỏ qua lỗi
-    } finally {
-      setIsCreatingSubject(false);
-    }
-  };
-
-  // Sửa môn học
-  const handleEditSubject = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!subjectName.trim() || !selectedSubjectId || !currentUser || isEditingSubject) return;
-
-    setIsEditingSubject(true);
-    try {
-      const response = await fetch('/api/subjects', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: selectedSubjectId, name: subjectName }),
-      });
-
-      if (response.ok) {
-        setSubjectName('');
-        setSelectedSubjectId(null);
-        setIsEditSubjectOpen(false);
-        fetchData(currentUser.id);
-        showToast('Đã đổi tên môn học', 'success', 'Đã sửa đổi tên môn học thành công.');
-      }
-    } catch {
-      // Bỏ qua lỗi
-    } finally {
-      setIsEditingSubject(false);
-    }
-  };
-
-  // Xóa môn học
-  const handleDeleteSubject = async (id: string) => {
-    if (!currentUser) return;
-    const confirmDelete = window.confirm('Bạn có chắc chắn muốn xóa môn học này không? Mọi học liệu và lịch sử thi liên quan cũng sẽ bị xóa vĩnh viễn.');
-    if (!confirmDelete) return;
-
-    try {
-      const response = await fetch(`/api/subjects?id=${id}`, {
-        method: 'DELETE',
-      });
-
-      if (response.ok) {
-        fetchData(currentUser.id);
-        showToast('Đã xóa môn học', 'success', 'Đã xóa môn học thành công.');
-      }
-    } catch {
-      // Bỏ qua lỗi
-    }
-  };
-
-  // Kiểm tra kích thước tệp
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const file = e.target.files[0];
-      const maxLimit = 20 * 1024 * 1024;
-      if (file.size > maxLimit) {
-        const appErr = getAppError('file_too_large');
-        alert(appErr.detailed);
-        e.target.value = '';
-        setSelectedFile(null);
-        return;
-      }
-      setSelectedFile(file);
-    }
-  };
-
-  // Tải tệp lên
-  const handleUploadMaterial = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedFile || !selectedSubjectId || !currentUser) return;
-
-    const maxLimit = 20 * 1024 * 1024;
-    if (selectedFile.size > maxLimit) {
-      const appErr = getAppError('file_too_large');
-      showToast(appErr.visual, 'error', appErr.detailed);
-      return;
-    }
-
-    setUploading(true);
-    showToast('Đang tải tệp lên...', 'info', 'Đang tải tệp lên hệ thống lưu trữ. Vui lòng đợi...');
-
-    let timer1: NodeJS.Timeout | null = null;
-    let timer2: NodeJS.Timeout | null = null;
-
-    try {
-      const fileExt = selectedFile.name.split('.').pop() || '';
-      const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
-      const filePath = `materials/${fileName}`;
-
-      const { error: uploadErr } = await supabase.storage
-        .from('alp_ai')
-        .upload(filePath, selectedFile, {
-          cacheControl: '3600',
-          upsert: false
-        });
-
-      if (uploadErr) {
-        throw new Error(uploadErr.message);
-      }
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('alp_ai')
-        .getPublicUrl(filePath);
-
-      // Bước 2: Bắt đầu trích xuất chữ
-      showToast('Đang trích xuất văn bản...', 'info', 'Đang đọc và trích xuất chữ từ tài liệu. Vui lòng đợi...');
-
-      // Bước 3: Đổi sang "Trợ lý AI đang làm việc..." sau 2.5s (trong lúc đang fetch)
-      timer1 = setTimeout(() => {
-        showToast('Trợ lý AI đang làm việc...', 'info', 'Trợ lý AI đang tóm tắt nội dung và soạn đề thi. Vui lòng đợi...');
-      }, 2500);
-
-      const response = await fetch('/api/materials', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fileUrl: publicUrl,
-          fileName: selectedFile.name,
-          fileMime: selectedFile.type,
-          subjectId: selectedSubjectId
-        }),
-      });
-
-      if (timer1) clearTimeout(timer1);
-
-      const data = (await response.json()) as { error?: string };
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Tải học liệu thất bại.');
-      }
-
-      // Bước 4: Hoàn thành!
-      showToast('Hoàn thành!', 'success', 'Tải và phân tích thành công. Bài học đã sẵn sàng!');
-
-      setSelectedFile(null);
-      setSelectedSubjectId(null);
-
-      timer2 = setTimeout(() => {
-        setIsUploadOpen(false);
-        fetchData(currentUser.id);
-      }, 1500);
-
-    } catch (err: unknown) {
-      if (timer1) clearTimeout(timer1);
-      if (timer2) clearTimeout(timer2);
-      const errObj = err as Error;
-      const appErr = getAppError(errObj.message || 'file_upload_error');
-      showToast(appErr.visual, 'error', appErr.detailed);
-    } finally {
-      setUploading(false);
-    }
-  };
-
   if (!currentUser) return null;
+
+  // Tính toán số liệu thống kê nhanh
+  const totalAttempts = attempts.length;
+  const avgScore = totalAttempts > 0 
+    ? Math.round(attempts.reduce((sum, att) => sum + att.score, 0) / totalAttempts) 
+    : 0;
+
+  // Lấy 3 lượt thi gần nhất
+  const recentAttempts = attempts.slice(0, 3);
 
   return (
     <div className="space-y-10">
 
-      {/* Hướng dẫn sử dụng */}
-      <details className="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 shadow-sm [&_summary::-webkit-details-marker]:hidden">
-        <summary className="flex items-center justify-between font-bold text-xl cursor-pointer list-none focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg p-1 text-gray-800 dark:text-gray-200 select-none">
-          <span className="flex items-center space-x-2.5">
-            <span className="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 p-2 rounded-lg" aria-hidden="true">
-              <BookOpen className="h-6 w-6" />
-            </span>
-            <span>Hướng dẫn sử dụng</span>
+      {/* Lời chào & Tóm tắt ngày */}
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 dark:from-blue-900 dark:to-indigo-950 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden transition-all duration-300">
+        <div className="absolute right-0 bottom-0 opacity-10 transform translate-x-12 translate-y-12">
+          <Activity className="h-64 w-64" />
+        </div>
+        
+        <div className="relative z-10 space-y-3">
+          <span className="bg-white/20 text-white font-extrabold text-xs tracking-wider uppercase px-3 py-1 rounded-full backdrop-blur-md">
+            Trang tổng quan
           </span>
-          <span className="transition group-open:rotate-180 text-gray-500 dark:text-gray-400">
-            <svg fill="none" height="24" width="24" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M6 9l6 6 6-6"></path>
-            </svg>
-          </span>
-        </summary>
+          <h2 className="text-3xl sm:text-4xl font-extrabold leading-tight">
+            Chào mừng trở lại, {currentUser.fullName}!
+          </h2>
+          <p className="text-lg text-blue-100 max-w-2xl">
+            Hôm nay bạn muốn học môn học nào? Trợ lý AI đã sẵn sàng phân tích tài liệu và đồng hành thi thử cùng bạn.
+          </p>
+        </div>
+      </div>
 
-        <div className="mt-6 border-t border-gray-100 dark:border-gray-800 pt-6 space-y-6 text-gray-700 dark:text-gray-300">
-          <div className="space-y-2">
-            <h3 className="text-lg font-extrabold text-gray-900 dark:text-white">Quy trình học tập</h3>
-            <ul className="list-decimal list-inside space-y-2.5 text-base">
-              <li><strong>Tạo môn học</strong>: Nhấn nút <span className="font-bold">&ldquo;Thêm môn học&rdquo;</span> ở góc phải màn hình.</li>
-              <li><strong>Tải tài liệu và phân tích</strong>: Nhấn nút <span className="font-bold">&ldquo;Tải tài liệu&rdquo;</span> trên thẻ môn học. Hãy chọn tệp tài liệu PDF hoặc DOCX (tối đa 20MB) có chứa chữ để AI tóm tắt và sinh ngân hàng đề thi.</li>
-              <li><strong>Xem kết quả trực tiếp</strong>: Hệ thống sẽ hiển thị các bước trích xuất và phân tích trực tiếp thông qua thông báo. Hộp thoại sẽ mở cho đến khi có thông báo hoàn thành.</li>
-              <li><strong>Bắt đầu học và thi</strong>: Sau khi hoàn tất thành công, môn học sẽ mở khóa hai chức năng là <span className="font-bold">&ldquo;Đọc bài&rdquo;</span> (xem bản tóm tắt bài học) và <span className="font-bold">&ldquo;Thi thử&rdquo;</span> (làm đề trắc nghiệm và tự luận do AI chấm điểm).</li>
-            </ul>
+      {/* Chỉ số thống kê nhanh */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 shadow-sm flex items-center space-x-4 transition-transform hover:scale-[1.02] duration-200">
+          <div className="p-4 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-2xl">
+            <BookOpen className="h-7 w-7" aria-hidden="true" />
           </div>
-
-          <div className="space-y-2">
-            <h3 className="text-lg font-extrabold text-gray-900 dark:text-white">Mẹo di chuyển & Phím tắt</h3>
-            <ul className="list-disc list-inside space-y-2 text-base">
-              <li>Ở bất kỳ trang nào, bạn có thể nhấn tổ hợp phím <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-sm font-semibold">Shift + ESC</kbd> để quay về bảng điều khiển.</li>
-              <li>Các thông báo tiến trình hay trạng thái thành công sẽ được tự động phát trực tiếp mà không chặn tương tác của bạn.</li>
-            </ul>
+          <div>
+            <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">Số lượng Môn học</p>
+            <p className="text-3xl font-extrabold text-gray-900 dark:text-white mt-1">{subjectsCount}</p>
           </div>
         </div>
-      </details>
 
-      {/* Danh sách môn học */}
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 shadow-sm flex items-center space-x-4 transition-transform hover:scale-[1.02] duration-200">
+          <div className="p-4 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-2xl">
+            <Award className="h-7 w-7" aria-hidden="true" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">Lượt thi thử</p>
+            <p className="text-3xl font-extrabold text-gray-900 dark:text-white mt-1">{totalAttempts}</p>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 shadow-sm flex items-center space-x-4 transition-transform hover:scale-[1.02] duration-200">
+          <div className="p-4 bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-2xl">
+            <TrendingUp className="h-7 w-7" aria-hidden="true" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">Điểm trung bình</p>
+            <p className="text-3xl font-extrabold text-gray-900 dark:text-white mt-1">{avgScore} / 100</p>
+          </div>
+        </div>
+
+      </div>
+
+      {/* Lưới điều hướng nhanh (Quick Links) */}
       <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
-          <h2 className="text-3xl font-extrabold tracking-tight text-gray-900 dark:text-white">
-            {MESSAGES.subjectListTitle}
-          </h2>
+        <h3 className="text-2xl font-extrabold text-gray-900 dark:text-white">Điều hướng nhanh</h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          
+          <button
+            type="button"
+            onClick={() => router.push('/subjects')}
+            className="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 shadow-sm text-left hover:shadow-md hover:border-blue-500/50 dark:hover:border-blue-400/50 transition-all duration-200 flex flex-col justify-between h-48 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <div className="space-y-3">
+              <div className="p-3 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl inline-block group-hover:scale-110 transition-transform">
+                <BookOpen className="h-6 w-6" aria-hidden="true" />
+              </div>
+              <h4 className="text-xl font-bold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400">Môn học</h4>
+              <p className="text-sm text-gray-500 dark:text-gray-400 leading-normal">
+                Quản lý môn học, đọc bài tóm tắt và thực hiện các bài thi thử.
+              </p>
+            </div>
+            <div className="flex items-center space-x-1.5 text-sm font-bold text-blue-600 dark:text-blue-400 mt-2">
+              <span>Đến trang học tập</span>
+              <ArrowRight className="h-4 w-4 transform group-hover:translate-x-1 transition-transform" />
+            </div>
+          </button>
 
           <button
             type="button"
-            onClick={() => {
-              setSubjectName('');
-              setIsAddSubjectOpen(true);
-            }}
-            className="text-lg font-bold bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white px-5 py-3.5 rounded-lg shadow transition-colors flex items-center justify-center space-x-2 focus:ring-blue-500"
-            aria-label="Thêm môn học"
+            onClick={() => router.push('/history')}
+            className="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 shadow-sm text-left hover:shadow-md hover:border-emerald-500/50 dark:hover:border-emerald-400/50 transition-all duration-200 flex flex-col justify-between h-48 focus:outline-none focus:ring-2 focus:ring-emerald-500"
           >
-            <Plus className="h-5 w-5" aria-hidden="true" />
-            <span>Thêm môn học</span>
+            <div className="space-y-3">
+              <div className="p-3 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-xl inline-block group-hover:scale-110 transition-transform">
+                <Award className="h-6 w-6" aria-hidden="true" />
+              </div>
+              <h4 className="text-xl font-bold text-gray-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400">Lịch sử thi</h4>
+              <p className="text-sm text-gray-500 dark:text-gray-400 leading-normal">
+                Xem lại danh sách tất cả các bài thi thử và kết quả nhận xét từ AI.
+              </p>
+            </div>
+            <div className="flex items-center space-x-1.5 text-sm font-bold text-emerald-600 dark:text-emerald-400 mt-2">
+              <span>Xem lịch sử thi</span>
+              <ArrowRight className="h-4 w-4 transform group-hover:translate-x-1 transition-transform" />
+            </div>
           </button>
+
+          <button
+            type="button"
+            onClick={() => router.push('/guide')}
+            className="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 shadow-sm text-left hover:shadow-md hover:border-purple-500/50 dark:hover:border-purple-400/50 transition-all duration-200 flex flex-col justify-between h-48 focus:outline-none focus:ring-2 focus:ring-purple-500"
+          >
+            <div className="space-y-3">
+              <div className="p-3 bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-xl inline-block group-hover:scale-110 transition-transform">
+                <HelpCircle className="h-6 w-6" aria-hidden="true" />
+              </div>
+              <h4 className="text-xl font-bold text-gray-900 dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-400">Hướng dẫn sử dụng</h4>
+              <p className="text-sm text-gray-500 dark:text-gray-400 leading-normal">
+                Tìm hiểu quy trình sử dụng web và các tính năng hỗ trợ tiếp cận.
+              </p>
+            </div>
+            <div className="flex items-center space-x-1.5 text-sm font-bold text-purple-600 dark:text-purple-400 mt-2">
+              <span>Đọc hướng dẫn</span>
+              <ArrowRight className="h-4 w-4 transform group-hover:translate-x-1 transition-transform" />
+            </div>
+          </button>
+
+        </div>
+      </div>
+
+      {/* Lượt làm bài thi gần đây */}
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 shadow-sm transition-colors">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-2xl font-extrabold tracking-tight text-gray-900 dark:text-white">
+            Bài thi gần đây nhất
+          </h3>
+          {totalAttempts > 3 && (
+            <button
+              type="button"
+              onClick={() => router.push('/history')}
+              className="text-sm font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center space-x-1"
+            >
+              <span>Xem tất cả</span>
+              <ArrowRight className="h-4 w-4" />
+            </button>
+          )}
         </div>
 
         {loading ? (
-          <div className="text-center py-12" role="status">
-            <span className="animate-spin inline-block w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mb-3" aria-hidden="true"></span>
-            <p className="text-lg text-gray-500 dark:text-gray-400">Đang tải...</p>
+          <div className="text-center py-6" role="status">
+            <span className="animate-spin inline-block w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full" aria-hidden="true"></span>
           </div>
-        ) : subjects.length === 0 ? (
-          <div className="text-center py-16 bg-white dark:bg-gray-900 rounded-2xl border border-dashed border-gray-300 dark:border-gray-800">
-            <BookOpen className="h-16 w-16 text-gray-300 dark:text-gray-700 mx-auto mb-4" aria-hidden="true" />
-            <p className="text-xl text-gray-500 dark:text-gray-400 mb-6">Chưa có môn học nào.</p>
-          </div>
-        ) : (
-          <ul role="list" aria-label="Danh sách môn học" className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {subjects.map((sub) => {
-              const material = sub.materials;
-              const hasMaterial = !!material && material.status === 'success';
-
-              return (
-                <li key={sub.id} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-sm hover:shadow-md p-6 flex flex-col justify-between transition-all">
-                  <div className="space-y-4">
-                    <div className="flex items-start justify-between">
-                      <h3 className="text-2xl font-extrabold text-gray-900 dark:text-white leading-tight">
-                        {sub.name}
-                      </h3>
-
-                      <div className="flex space-x-1">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedSubjectId(sub.id);
-                            setSubjectName(sub.name);
-                            setIsEditSubjectOpen(true);
-                          }}
-                          className="p-2 text-gray-500 hover:text-blue-600 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg focus:ring-blue-500"
-                          aria-label={`Sửa tên môn học ${sub.name}`}
-                        >
-                          <Edit3 className="h-5 w-5" aria-hidden="true" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteSubject(sub.id)}
-                          className="p-2 text-gray-500 hover:text-red-600 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg focus:ring-red-500"
-                          aria-label={`Xóa môn học ${sub.name}`}
-                        >
-                          <Trash2 className="h-5 w-5" aria-hidden="true" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-6 grid grid-cols-1 gap-3">
-                    {hasMaterial ? (
-                      <div className="grid grid-cols-2 gap-3">
-                        <button
-                          type="button"
-                          onClick={() => router.push(`/subjects/${sub.id}`)}
-                          className="text-base font-bold bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg flex items-center justify-center space-x-2 focus:ring-blue-500"
-                          aria-label={`Đọc tài liệu môn ${sub.name}`}
-                        >
-                          <BookOpen className="h-5 w-5" aria-hidden="true" />
-                          <span>Đọc bài</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => router.push(`/exam/${sub.id}`)}
-                          className="text-base font-bold bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-lg flex items-center justify-center space-x-2 focus:ring-emerald-500"
-                          aria-label={`Làm bài thi môn ${sub.name}`}
-                        >
-                          <Award className="h-5 w-5" aria-hidden="true" />
-                          <span>{MESSAGES.examSittingText}</span>
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedSubjectId(sub.id);
-                          setIsUploadOpen(true);
-                        }}
-                        className="w-full text-base font-bold bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-lg flex items-center justify-center space-x-2 focus:ring-blue-500 shadow-md"
-                        aria-label={`Tải tài liệu môn ${sub.name}`}
-                      >
-                        <Upload className="h-5 w-5" aria-hidden="true" />
-                        <span>Tải tài liệu</span>
-                      </button>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </div>
-
-      {/* Lịch sử thi */}
-      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 shadow-sm transition-colors">
-        <h3 className="text-2xl font-extrabold tracking-tight text-gray-900 dark:text-white mb-6">
-          Lịch sử bài thi
-        </h3>
-
-        {attempts.length === 0 ? (
-          <p className="text-lg text-gray-500 dark:text-gray-400 py-6 text-center">
+        ) : recentAttempts.length === 0 ? (
+          <p className="text-base text-gray-500 dark:text-gray-400 py-4 text-center">
             Bạn chưa thực hiện bài thi nào.
           </p>
         ) : (
           <div className="overflow-x-auto rounded-lg border border-gray-100 dark:border-gray-800">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800" aria-label="Bảng danh sách lịch sử thi">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800" aria-label="Bảng danh sách lịch sử thi gần đây">
               <thead className="bg-gray-50 dark:bg-gray-800">
                 <tr>
-                  <th scope="col" className="px-6 py-4 text-left text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">Môn thi</th>
-                  <th scope="col" className="px-6 py-4 text-left text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">Điểm số</th>
-                  <th scope="col" className="px-6 py-4 text-left text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">Thời gian hoàn thành</th>
-                  <th scope="col" className="px-6 py-4 text-center text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">Hành động</th>
+                  <th scope="col" className="px-6 py-3.5 text-left text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">Môn thi</th>
+                  <th scope="col" className="px-6 py-3.5 text-left text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">Điểm số</th>
+                  <th scope="col" className="px-6 py-3.5 text-left text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">Thời gian</th>
+                  <th scope="col" className="px-6 py-3.5 text-center text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">Chi tiết</th>
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-gray-950 divide-y divide-gray-200 dark:divide-gray-800">
-                {attempts.map((att) => (
+                {recentAttempts.map((att) => (
                   <tr key={att.id}>
                     <td className="px-6 py-4 whitespace-nowrap text-base font-extrabold text-gray-900 dark:text-white">
                       {att.subjects?.name || 'Môn học đã xóa'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-base font-bold">
-                      <span className={`px-3 py-1 rounded text-lg ${att.score >= 80 ? 'text-emerald-700 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/20' : att.score >= 50 ? 'text-blue-700 bg-blue-50 dark:text-blue-400 dark:bg-blue-950/20' : 'text-red-700 bg-red-50 dark:text-red-400 dark:bg-red-950/20'}`}>
+                      <span className={`px-2.5 py-0.5 rounded text-sm ${att.score >= 80 ? 'text-emerald-700 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/20' : att.score >= 50 ? 'text-blue-700 bg-blue-50 dark:text-blue-400 dark:bg-blue-950/20' : 'text-red-700 bg-red-50 dark:text-red-400 dark:bg-red-950/20'}`}>
                         {att.score} / 100
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-base text-gray-500 dark:text-gray-400 flex items-center space-x-1">
                       <Calendar className="h-4 w-4" aria-hidden="true" />
-                      <span>{new Date(att.completed_at).toLocaleString('vi-VN')}</span>
+                      <span>{new Date(att.completed_at).toLocaleDateString('vi-VN')}</span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center text-base font-medium">
                       <button
                         type="button"
                         onClick={() => router.push(`/exam/attempts/${att.id}`)}
                         className="text-blue-600 dark:text-blue-400 font-extrabold underline hover:text-blue-800 focus:ring-blue-500"
-                        aria-label={`Xem chi tiết bài làm môn ${att.subjects?.name || 'Môn học đã xóa'}, đạt ${att.score} điểm`}
+                        aria-label={`Xem kết quả chi tiết bài làm môn ${att.subjects?.name || 'Môn học đã xóa'}`}
                       >
-                        {MESSAGES.viewDetailText}
+                        Xem
                       </button>
                     </td>
                   </tr>
@@ -535,127 +321,6 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
-
-      {/* Modals */}
-      <Modal
-        isOpen={isAddSubjectOpen}
-        onClose={setIsAddSubjectOpen}
-        title="Thêm môn học"
-        description="Điền tên môn học vào ô bên dưới."
-      >
-        <form onSubmit={handleAddSubject} className="space-y-4">
-          <div>
-            <label htmlFor="new-subject-name" className="block text-lg font-bold text-gray-800 dark:text-gray-200 mb-2">
-              Tên môn học
-            </label>
-            <input
-              id="new-subject-name"
-              type="text"
-              required
-              autoFocus
-              disabled={isCreatingSubject}
-              value={subjectName}
-              onChange={(e) => setSubjectName(e.target.value)}
-              placeholder="Ví dụ: Lịch sử Đảng Cộng Sản Việt Nam"
-              className="w-full text-lg px-4 py-3 rounded-lg border-2 border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-blue-600 dark:focus:border-blue-500 transition-colors disabled:opacity-50"
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={isCreatingSubject}
-            className="w-full text-lg font-bold py-3 px-6 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors focus:ring-blue-500 disabled:opacity-50 flex items-center justify-center space-x-2"
-          >
-            {isCreatingSubject && (
-              <span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" aria-hidden="true"></span>
-            )}
-            <span>{isCreatingSubject ? 'Đang tạo...' : 'Tạo mới'}</span>
-          </button>
-        </form>
-      </Modal>
-
-      <Modal
-        isOpen={isEditSubjectOpen}
-        onClose={setIsEditSubjectOpen}
-        title="Đổi tên môn"
-        description="Cập nhật tên mới vào ô bên dưới."
-      >
-        <form onSubmit={handleEditSubject} className="space-y-4">
-          <div>
-            <label htmlFor="edit-subject-name" className="block text-lg font-bold text-gray-800 dark:text-gray-200 mb-2">
-              Tên môn học
-            </label>
-            <input
-              id="edit-subject-name"
-              type="text"
-              required
-              autoFocus
-              disabled={isEditingSubject}
-              value={subjectName}
-              onChange={(e) => setSubjectName(e.target.value)}
-              className="w-full text-lg px-4 py-3 rounded-lg border-2 border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 text-gray-900 dark:text-white focus:outline-none focus:border-blue-600 dark:focus:border-blue-500 transition-colors disabled:opacity-50"
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={isEditingSubject}
-            className="w-full text-lg font-bold py-3 px-6 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors focus:ring-blue-500 disabled:opacity-50 flex items-center justify-center space-x-2"
-          >
-            {isEditingSubject && (
-              <span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" aria-hidden="true"></span>
-            )}
-            <span>{isEditingSubject ? 'Đang cập nhật...' : 'Cập nhật'}</span>
-          </button>
-        </form>
-      </Modal>
-
-      <Modal
-        isOpen={isUploadOpen}
-        onClose={(open) => {
-          if (!uploading) {
-            setIsUploadOpen(open);
-            setSelectedFile(null);
-          }
-        }}
-        title="Tải tài liệu"
-        description="Tải tài liệu PDF hoặc DOCX lên vào ô bên dưới."
-      >
-        <form onSubmit={handleUploadMaterial} className="space-y-6">
-          <div className="border-4 border-dashed border-gray-200 dark:border-gray-800 hover:border-blue-500 rounded-xl p-8 text-center transition-colors">
-            <input
-              id="material-file"
-              type="file"
-              required
-              accept=".pdf,.docx,.doc"
-              onChange={handleFileChange}
-              disabled={uploading}
-              className="sr-only"
-            />
-            <label htmlFor="material-file" className="cursor-pointer block space-y-4 focus:outline-none">
-              <div className="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 p-4 rounded-full inline-block">
-                <Upload className="h-8 w-8 mx-auto" aria-hidden="true" />
-              </div>
-              <div className="text-lg font-bold text-gray-700 dark:text-gray-300">
-                {selectedFile ? (
-                  <span className="text-blue-600 dark:text-blue-400 font-extrabold">{selectedFile.name}</span>
-                ) : (
-                  <span>Chọn tệp tin</span>
-                )}
-              </div>
-              <p className="text-sm text-gray-400 dark:text-gray-500">
-                Tài liệu tối đa 20MB
-              </p>
-            </label>
-          </div>
-
-          <button
-            type="submit"
-            disabled={!selectedFile || uploading}
-            className="w-full text-lg font-bold py-3.5 px-6 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors focus:ring-blue-500 disabled:opacity-40"
-          >
-            {uploading ? 'Đang xử lý...' : 'Tải lên'}
-          </button>
-        </form>
-      </Modal>
 
     </div>
   );

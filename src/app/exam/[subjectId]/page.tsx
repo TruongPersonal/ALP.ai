@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Send, BookOpen } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { ConfirmModal } from '@/components/accessible/ConfirmModal';
 import { getAppError } from '@/lib/errorHelper';
 import { useToast } from '@/components/accessible/ToastProvider';
 
@@ -46,6 +47,10 @@ export default function ExamPage() {
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+
+  // Trạng thái modal xác nhận nộp/hủy bài
+  const [isSubmitConfirmOpen, setIsSubmitConfirmOpen] = useState(false);
+  const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
 
   const examInitialized = useRef(false);
   const { showToast } = useToast();
@@ -176,9 +181,7 @@ export default function ExamPage() {
 
   const handleSubmitClick = (e: React.FormEvent) => {
     e.preventDefault();
-    const confirmSubmit = window.confirm(MESSAGES.submitExamConfirm);
-    if (!confirmSubmit) return;
-    submitExam();
+    setIsSubmitConfirmOpen(true);
   };
 
   if (loading) {
@@ -279,19 +282,7 @@ export default function ExamPage() {
 
       <button
         type="button"
-        onClick={() => {
-          const confirmExit = window.confirm(MESSAGES.exitExamConfirm);
-          if (confirmExit) {
-            if (attemptIdRef.current) {
-              localStorage.removeItem(`exam_draft_${attemptIdRef.current}`);
-              fetch(`/api/exam?attemptId=${attemptIdRef.current}`, {
-                method: 'DELETE',
-                keepalive: true
-              }).catch(() => {});
-            }
-            router.push('/dashboard');
-          }
-        }}
+        onClick={() => setIsExitConfirmOpen(true)}
         className="w-full sm:w-auto text-lg font-bold text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 px-5 py-3 rounded-lg transition-colors flex items-center justify-center space-x-2 focus:outline-none focus:ring-2 focus:ring-gray-500"
         aria-label={MESSAGES.exitExamAria}
       >
@@ -374,6 +365,40 @@ export default function ExamPage() {
         </div>
 
       </form>
+
+      {/* Modal xác nhận nộp bài */}
+      <ConfirmModal
+        isOpen={isSubmitConfirmOpen}
+        onClose={setIsSubmitConfirmOpen}
+        title="Nộp bài thi"
+        description={MESSAGES.submitExamConfirm}
+        onConfirm={submitExam}
+        confirmText="Nộp bài"
+        cancelText="Hủy bỏ"
+        isDanger={false}
+      />
+
+      {/* Modal xác nhận thoát thi thử */}
+      <ConfirmModal
+        isOpen={isExitConfirmOpen}
+        onClose={setIsExitConfirmOpen}
+        title="Hủy lượt thi"
+        description={MESSAGES.exitExamConfirm}
+        onConfirm={() => {
+          if (attemptIdRef.current) {
+            localStorage.removeItem(`exam_draft_${attemptIdRef.current}`);
+            fetch(`/api/exam?attemptId=${attemptIdRef.current}`, {
+              method: 'DELETE',
+              keepalive: true
+            }).catch(() => {});
+          }
+          router.push('/dashboard');
+        }}
+        confirmText="Hủy lượt thi"
+        cancelText="Quay lại làm bài"
+        isDanger={true}
+      />
+
     </div>
   );
 }
