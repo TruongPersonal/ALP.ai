@@ -36,7 +36,7 @@ interface AttemptDetails {
 const MESSAGES = {
   loadingMsg: 'Đang tải...',
   backToDashboardBtn: 'Trở về',
-  backToDashboardAria: 'Trở về bảng điều khiển',
+  backToDashboardAria: 'Trở về trang lịch sử làm bài',
   completedAtPrefix: 'Thời gian hoàn thành: ',
   scoreTitle: 'Điểm số',
   scoreScaleDesc: 'thang điểm 100',
@@ -77,10 +77,10 @@ export default function ResultsPage() {
           const subjName = data.attempt.materials?.subjects?.name || 'Môn học';
           document.title = `Trang kết quả: ${subjName}, ALP.ai`;
         } else {
-          router.push('/dashboard');
+          router.push('/history');
         }
       } catch {
-        router.push('/dashboard');
+        router.push('/history');
       } finally {
         setLoading(false);
       }
@@ -235,7 +235,7 @@ export default function ResultsPage() {
           <div className="space-y-4 w-full">
             <button
               type="button"
-              onClick={() => router.push('/dashboard')}
+              onClick={() => router.push('/history')}
               className="w-full md:w-auto md:self-start text-lg font-bold text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 px-5 py-3 rounded-xl transition-colors flex items-center justify-center space-x-2 focus:ring-gray-500 focus:outline-none"
               aria-label={MESSAGES.backToDashboardAria}
             >

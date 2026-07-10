@@ -53,7 +53,7 @@ export default function GuidePage() {
         <ol className="list-decimal list-inside space-y-4 text-gray-700 dark:text-gray-300 text-base sm:text-lg">
           <li className="leading-relaxed">
             <strong className="text-gray-900 dark:text-white">Tạo môn học mới</strong>: 
-            Truy cập trang <span className="font-bold">&ldquo;Môn học&rdquo;</span>, nhấn nút <span className="font-bold">&ldquo;Thêm môn học&rdquo;</span> ở góc phải và nhập tên môn học (Ví dụ: Lịch sử Đảng).
+            Truy cập trang <span className="font-bold">&ldquo;Môn học&rdquo;</span>, nhấn nút <span className="font-bold">&ldquo;Thêm môn học&rdquo;</span> và nhập tên môn học (Ví dụ: Lịch sử Đảng).
           </li>
           <li className="leading-relaxed">
             <strong className="text-gray-900 dark:text-white">Tải tài liệu lên</strong>: 

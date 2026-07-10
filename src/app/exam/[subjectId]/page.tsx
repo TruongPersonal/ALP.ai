@@ -19,7 +19,7 @@ interface Question {
 const MESSAGES = {
   exitExamBtn: 'Trở về',
   exitExamConfirm: 'Bạn có chắc chắn muốn hủy lượt thi này không? Mọi kết quả bài làm hiện tại sẽ bị mất.',
-  exitExamAria: 'Trở về bảng điều khiển',
+  exitExamAria: 'Trở về trang quản lý môn học',
   part1Guide: 'Các câu hỏi trắc nghiệm hãy nhấn chọn đáp án đúng.',
   part2Guide: 'Các câu hỏi tự luận hãy gõ nội dung trả lời mạch lạc vào ô trả lời.',
   questionTitlePrefix: 'Câu hỏi ',
@@ -156,7 +156,7 @@ export default function ExamPage() {
         const errObj = err as Error;
         const appErr = getAppError(errObj.message || 'exam_init_error');
         showToast(appErr.visual, 'error', appErr.detailed);
-        router.push('/dashboard');
+        router.push('/subjects');
       } finally {
         setLoading(false);
       }
@@ -392,7 +392,7 @@ export default function ExamPage() {
               keepalive: true
             }).catch(() => {});
           }
-          router.push('/dashboard');
+          router.push('/subjects');
         }}
         confirmText="Hủy lượt thi"
         cancelText="Quay lại làm bài"

@@ -17,7 +17,7 @@ interface SubjectDetails {
 
 const MESSAGES = {
   goBackLabel: 'Trở về',
-  goBackAria: 'Trở về bảng điều khiển',
+  goBackAria: 'Trở về trang quản lý môn học',
   aiCompileDesc: 'Bản tóm tắt môn học được phân tích, biên soạn bởi trợ lý AI.',
   loadingMsg: 'Đang tải...'
 };
@@ -58,10 +58,10 @@ export default function StudyPage() {
           setSubject(data as unknown as SubjectDetails);
           document.title = `Trang học: ${data.name}, ALP.ai`;
         } else {
-          router.push('/dashboard');
+          router.push('/subjects');
         }
       } catch {
-        router.push('/dashboard');
+        router.push('/subjects');
       } finally {
         setLoading(false);
       }
@@ -91,7 +91,7 @@ export default function StudyPage() {
 
       <button
         type="button"
-        onClick={() => router.push('/dashboard')}
+        onClick={() => router.push('/subjects')}
         className="w-full md:w-auto text-lg font-bold text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 px-5 py-3 rounded-lg transition-colors flex items-center justify-center space-x-2 focus:ring-gray-500 focus:outline-none"
         aria-label={MESSAGES.goBackAria}
       >
