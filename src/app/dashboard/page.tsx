@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { useToast } from '@/components/accessible/ToastProvider';
 import { BookOpen, Award, HelpCircle, Calendar, ArrowRight, Activity, TrendingUp } from 'lucide-react';
 
 interface UserProfile {
@@ -192,7 +191,7 @@ export default function DashboardPage() {
           <button
             type="button"
             onClick={() => router.push('/subjects')}
-            className="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 shadow-sm text-left hover:shadow-md hover:border-blue-500/50 dark:hover:border-blue-400/50 transition-all duration-200 flex flex-col justify-between h-48 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="relative group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 shadow-sm text-left hover:shadow-md hover:border-blue-500/50 dark:hover:border-blue-400/50 transition-all duration-200 flex flex-col justify-between h-48 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <div className="space-y-3">
               <div className="p-3 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl inline-block group-hover:scale-110 transition-transform">
@@ -203,7 +202,7 @@ export default function DashboardPage() {
                 Quản lý môn học, đọc bài tóm tắt và thực hiện các bài thi thử.
               </p>
             </div>
-            <div className="flex items-center space-x-1.5 text-sm font-bold text-blue-600 dark:text-blue-400 mt-2">
+            <div className="absolute top-6 right-6 flex items-center space-x-1.5 text-sm font-bold text-blue-600 dark:text-blue-400">
               <span>Đến trang học tập</span>
               <ArrowRight className="h-4 w-4 transform group-hover:translate-x-1 transition-transform" />
             </div>
@@ -212,7 +211,7 @@ export default function DashboardPage() {
           <button
             type="button"
             onClick={() => router.push('/history')}
-            className="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 shadow-sm text-left hover:shadow-md hover:border-emerald-500/50 dark:hover:border-emerald-400/50 transition-all duration-200 flex flex-col justify-between h-48 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            className="relative group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 shadow-sm text-left hover:shadow-md hover:border-emerald-500/50 dark:hover:border-emerald-400/50 transition-all duration-200 flex flex-col justify-between h-48 focus:outline-none focus:ring-2 focus:ring-emerald-500"
           >
             <div className="space-y-3">
               <div className="p-3 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-xl inline-block group-hover:scale-110 transition-transform">
@@ -223,7 +222,7 @@ export default function DashboardPage() {
                 Xem lại danh sách tất cả các bài thi thử và kết quả nhận xét từ AI.
               </p>
             </div>
-            <div className="flex items-center space-x-1.5 text-sm font-bold text-emerald-600 dark:text-emerald-400 mt-2">
+            <div className="absolute top-6 right-6 flex items-center space-x-1.5 text-sm font-bold text-emerald-600 dark:text-emerald-400">
               <span>Xem lịch sử thi</span>
               <ArrowRight className="h-4 w-4 transform group-hover:translate-x-1 transition-transform" />
             </div>
@@ -232,7 +231,7 @@ export default function DashboardPage() {
           <button
             type="button"
             onClick={() => router.push('/guide')}
-            className="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 shadow-sm text-left hover:shadow-md hover:border-purple-500/50 dark:hover:border-purple-400/50 transition-all duration-200 flex flex-col justify-between h-48 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className="relative group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 shadow-sm text-left hover:shadow-md hover:border-purple-500/50 dark:hover:border-purple-400/50 transition-all duration-200 flex flex-col justify-between h-48 focus:outline-none focus:ring-2 focus:ring-purple-500"
           >
             <div className="space-y-3">
               <div className="p-3 bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-xl inline-block group-hover:scale-110 transition-transform">
@@ -243,7 +242,7 @@ export default function DashboardPage() {
                 Tìm hiểu quy trình sử dụng web và các tính năng hỗ trợ tiếp cận.
               </p>
             </div>
-            <div className="flex items-center space-x-1.5 text-sm font-bold text-purple-600 dark:text-purple-400 mt-2">
+            <div className="absolute top-6 right-6 flex items-center space-x-1.5 text-sm font-bold text-purple-600 dark:text-purple-400">
               <span>Đọc hướng dẫn</span>
               <ArrowRight className="h-4 w-4 transform group-hover:translate-x-1 transition-transform" />
             </div>
@@ -256,7 +255,7 @@ export default function DashboardPage() {
       <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 shadow-sm transition-colors">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-2xl font-extrabold tracking-tight text-gray-900 dark:text-white">
-            Bài thi gần đây nhất
+            Bài thi mới nhất
           </h3>
           {totalAttempts > 3 && (
             <button

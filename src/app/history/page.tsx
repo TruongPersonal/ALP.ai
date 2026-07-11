@@ -130,7 +130,7 @@ export default function HistoryPage() {
       {loading ? (
         <div className="text-center py-20" role="status">
           <span className="animate-spin inline-block w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mb-3" aria-hidden="true"></span>
-          <p className="text-lg text-gray-500 dark:text-gray-400">Đang tải lịch sử bài thi...</p>
+          <p className="text-lg text-gray-500 dark:text-gray-400">Đang tải...</p>
         </div>
       ) : attempts.length === 0 ? (
         <div className="text-center py-16 bg-white dark:bg-gray-900 rounded-2xl border border-dashed border-gray-300 dark:border-gray-800 shadow-sm">
