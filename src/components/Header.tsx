@@ -191,40 +191,38 @@ export function Header() {
                     className="absolute right-0 mt-2 w-64 bg-white/95 dark:bg-gray-950/95 backdrop-blur-md border border-gray-200 dark:border-gray-800 rounded-2xl shadow-2xl p-2 z-50 animate-scale-up"
                   >
                     {/* Thông tin tài khoản đăng nhập */}
-                    <div className="px-4 py-3 mb-1 border-b border-gray-100 dark:border-gray-800 text-left">
-                      <p className="text-[10px] font-bold tracking-wider text-gray-400 uppercase">Tài khoản đăng nhập</p>
-                      <p className="text-sm font-extrabold text-gray-900 dark:text-white truncate mt-0.5">
-                        {currentUser.fullName}
-                      </p>
+                    <div className="flex items-center justify-between px-4 py-3 mb-1 border-b border-gray-100 dark:border-gray-800">
+                      {/* Cột trái: Xin chào, {Tên} */}
+                      <div className="text-left">
+                        <p className="text-[10px] font-bold tracking-wider text-gray-400 uppercase">Xin chào,</p>
+                        <p className="text-sm font-extrabold text-gray-900 dark:text-white truncate mt-0.5 max-w-[120px]">
+                          {currentUser.fullName}
+                        </p>
+                      </div>
+
+                      {/* Cột phải: Đăng xuất */}
+                      <button
+                        type="button"
+                        onClick={handleSignOut}
+                        className="flex items-center space-x-1 text-sm font-bold text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:underline transition-colors focus:ring-2 focus:ring-red-500 focus:outline-none rounded"
+                      >
+                        <LogOut className="h-4 w-4" aria-hidden="true" />
+                        <span>Đăng xuất</span>
+                      </button>
                     </div>
 
                     <div className="grid grid-cols-1 gap-1">
-                      {menuItems.map((item) => (
+                      {menuItems.filter(item => !item.isDanger).map((item) => (
                         <React.Fragment key={item.label}>
-                          {item.isDanger && (
-                            <hr className="my-1 border-gray-100 dark:border-gray-800" />
-                          )}
                           <button
                             role="menuitem"
-                            onClick={item.onClick ? item.onClick : () => handleItemClick(item.href!)}
-                            className={`w-full flex items-center space-x-3 p-2.5 rounded-xl text-left transition-all duration-150 group focus:outline-none focus:ring-2 ${
-                              item.isDanger
-                                ? 'hover:bg-red-50 dark:hover:bg-red-950/30 focus:ring-red-500'
-                                : 'hover:bg-blue-50 dark:hover:bg-blue-900/30 focus:ring-blue-500'
-                            }`}
+                            onClick={() => handleItemClick(item.href!)}
+                            className="w-full flex items-center space-x-3 p-2.5 rounded-xl text-left transition-all duration-150 group hover:bg-blue-50 dark:hover:bg-blue-900/30 focus:outline-none focus:ring-2 focus:ring-blue-500"
                           >
-                            <div className={`p-2 rounded-lg group-hover:scale-110 transition-transform ${
-                              item.isDanger
-                                ? 'bg-red-50 dark:bg-red-900/40 text-red-600 dark:text-red-400'
-                                : 'bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400'
-                            }`} aria-hidden="true">
+                            <div className="p-2 rounded-lg group-hover:scale-110 transition-transform bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400" aria-hidden="true">
                               <item.icon className="h-5 w-5" />
                             </div>
-                            <div className={`text-sm font-bold ${
-                              item.isDanger
-                                ? 'text-red-600 dark:text-red-400 group-hover:text-red-700 dark:group-hover:text-red-300'
-                                : 'text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400'
-                            }`}>
+                            <div className="text-sm font-bold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400">
                               {item.label}
                             </div>
                           </button>
