@@ -252,7 +252,7 @@ ${essaysPrompt}
 
   const responseText = await sendChatRequest(systemInstruction, prompt, true);
   const cleanedText = cleanJsonResponse(responseText);
-  
+
   const parsed = JSON.parse(cleanedText) as {
     grades?: Array<{ id: string; score: number; feedback: string }>;
   };

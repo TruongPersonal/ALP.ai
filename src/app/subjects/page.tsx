@@ -286,7 +286,7 @@ export default function SubjectsPage() {
 
   return (
     <div className="space-y-6">
-      
+
       {/* Tiêu đề & Action */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
         <div>

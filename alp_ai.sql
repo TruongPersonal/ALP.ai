@@ -1,5 +1,11 @@
 create schema if not exists alp_ai;
 
+grant usage on schema alp_ai to anon, authenticated, service_role;
+grant all on all tables in schema alp_ai to anon, authenticated, service_role;
+grant all on all sequences in schema alp_ai to anon, authenticated, service_role;
+alter default privileges in schema alp_ai grant all on tables to anon, authenticated, service_role;
+alter default privileges in schema alp_ai grant all on sequences to anon, authenticated, service_role;
+
 create or replace function alp_ai.update_modified_column()
 returns trigger as $$
 begin
@@ -33,6 +39,8 @@ for each row execute procedure alp_ai.update_modified_column();
 create table alp_ai.materials (
   id uuid default gen_random_uuid() primary key,
   subject_id uuid references alp_ai.subjects(id) on delete cascade unique not null,
+  file_url text,
+  status varchar default 'processing',
   summary_markdown text not null,
   converted text not null,
   questions jsonb not null,
